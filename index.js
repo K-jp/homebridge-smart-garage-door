@@ -665,9 +665,10 @@ class homekitGarageDoorAccessory {
     this.updateCurrentDoorState(doorState.current,doorState.obstruction);
     
     if (garageDoorHasSensor(doorSensor)){
-        this.collectDoorStats(doorState.target,doorState.obstruction); // collect door stats information
+        this.collectDoorStats(doorState.target,doorState.obstruction); // collect door stats information and reset switch info
         this.activateDoorStateInterrupt(doorState.current); //rearm door sensor interrupts
-      }else {resetDoorSwitchActiveInfo();}
+    }else // a switch only config needs to reset switch info
+        {resetDoorSwitchActiveInfo();}
       
     doorState.homeKitRequest = false;
     //physical door swich may be in an unkown state if requests were issued from both iphone and traditional garagedoor switch..so always reset it
