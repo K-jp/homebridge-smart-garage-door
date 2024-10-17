@@ -16,3 +16,14 @@ A user can also configure this accessory without any actuator(s) and just send r
 This accessory can also configure this accessory without any actuator(s) and just toggle the door switch send to move the door. 
 
 If no actuator is used, this accessory will initially assume the door is closed and toggle between the door open an closed with each successive request to move the door.
+
+
+Sample config with a switch and 1 actuator:
+
+{ "accessory": "smartgaragedoor",
+   "name": "Garage Door",
+   "doorSwitch": {
+           "GPIO": <your GPIO pin number> },
+   "doorSensor":{
+            "GPIO": <your GPIO pin number> }
+ }           
