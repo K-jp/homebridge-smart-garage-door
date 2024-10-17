@@ -667,7 +667,7 @@ class homekitGarageDoorAccessory {
     if (garageDoorHasSensor(doorSensor)){
         this.collectDoorStats(doorState.target,doorState.obstruction); // collect door stats information and reset switch info
         this.activateDoorStateInterrupt(doorState.current); //rearm door sensor interrupts
-    }else // a switch only config needs to reset switch info
+    }else //reset switch info for switch only configuration
         {resetDoorSwitchActiveInfo();}
       
     doorState.homeKitRequest = false;
