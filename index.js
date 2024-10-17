@@ -126,7 +126,12 @@ const killTimer           = (timerId)  => {// clear pending timer
 const scheduleTimerEvent  = (timerId,timerActionFunction,timer) => {
                                            // schedule an event timer
                                             killTimer(timerId);
-                                            return setTimeout(timerActionFunction, timer);}                         
+                                            return setTimeout(timerActionFunction, timer);} 
+
+ // door switch interrupt 
+ const resetDoorSwitchActiveInfo =() =>{ // reset door switch interrupt active request count and suspend flag
+                                        doorSwitch.interruptActiveRequest.count = 0;
+                                        doorSwitch.interruptActiveRequest.suspend = false;}                                           
 //error logging functions
 const getCaller = (stack)              => {//get calling method / function name
                                            const reDot = /[.]/;
@@ -662,6 +667,7 @@ class homekitGarageDoorAccessory {
     if (garageDoorHasSensor(doorSensor)){
         this.collectDoorStats(doorState.target,doorState.obstruction); // collect door stats information
         this.activateDoorStateInterrupt(doorState.current); //rearm door sensor interrupts
+      }else resetDoorSwitchActiveInfo();
     }
     doorState.homeKitRequest = false;
     //physical door swich may be in an unkown state if requests were issued from both iphone and traditional garagedoor switch..so always reset it
@@ -720,9 +726,7 @@ class homekitGarageDoorAccessory {
                                 doorStatMsg = `Door service received ${doorSwitch.interruptActiveRequest.count} - action set to ${interruptActiveRequestConditions()}request`;
                                 // Log event  
                                 logEvent(statsEvent,doorStatMsg);
-                                // reset door switch interrupt active request count and suspend flag
-                                doorSwitch.interruptActiveRequest.count = 0;
-                                doorSwitch.interruptActiveRequest.suspend = false;
+                                resetDoorSwitchActiveInfo();
                               break; 
                               default:
                                 const errMsg = `invalid event [${event}]`;
