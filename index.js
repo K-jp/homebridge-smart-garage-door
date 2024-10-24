@@ -38,7 +38,8 @@ const onOffEdgeInterruptSettings = [ "none", "falling", "rising", "both" ];
 const [ none, falling, rising, both ] = onOffEdgeInterruptSettings;
 // garage door switch management objects 
 const doorSwitch  = {GPIO:null, onOff:null, pressTimeInMs:null, moveTimeInSec:null, 
-                     interruptActiveRequest:{ count:0, authorized:null, newRequest:null, suspend:false, timerId:null, timeOutInMs:2000 }, //stop accepting new requests after 2 secounds
+                     interruptActiveRequest:{ count:0, authorized:null, newRequest:null, suspend:false, timerId:null},
+                     waitTimeBetweenRequestInSec:null,
                      relaySwitch:{ configValue:null, writeValue:null}};
 // garage door sensor object factory                                                                                                                        
 const sensorObj   =() => {return {GPIO:null, onOff:null, position:null,
@@ -48,7 +49,7 @@ const sensorObj   =() => {return {GPIO:null, onOff:null, position:null,
 const doorSensor  = sensorObj();
 const doorSensor2 = sensorObj();
 
-const doorState   = {timerId:null, homeKitRequest:false, operationInterrupted:false, moveTimeInMs:null, last:null, current:null, target:null, obstruction:false};
+const doorState   = {timerId:null, homeKitRequest:false, operationInterrupted:false, waitTimeInMsBetweenActiveRequests:null, moveTimeInMs:null, last:null, current:null, target:null, obstruction:false};
 const doorLog     = {logger:null, accessory:'', name:''};
 const doorStats   = {open:{requestSource:'', time:null}, close:{requestSource:'', time:null}, obstruction:{startTime:null, endTime:null}};
 const homeBridge  = {Service:null, Characteristic:null, CurrentDoorState:null, TargetDoorState:null, ObstructionDetected:null};
@@ -333,12 +334,20 @@ class homekitGarageDoorAccessory {
                                             doorSwitchInfo.pressTimeInMs           = setValue(configSwitchInfo.pressTimeInMs,1500);
                                             validateConfigSwitchValue(doorSwitchInfo.pressTimeInMs,objKeySymbol(doorSwitchInfo).pressTimeInMs,1000,2000);
                                             doorSwitchInfo.moveTimeInSec           = setValue(configSwitchInfo.moveTimeInSec,12);
+                                            //convert physical door move time from sec to ms
+                                            doorState.moveTimeInMs =  doorSwitch.moveTimeInSec * 1000;;
                                             validateConfigSwitchValue(doorSwitchInfo.moveTimeInSec,objKeySymbol(doorSwitchInfo).moveTimeInSec,10,15);
                                             doorSwitchInfo.relaySwitch.writeValue  = doorSwitchInfo.relaySwitch.configValue
                                                                                    = setDeviceSignal(configSwitchInfo.relaySwitch, objKeySymbol(doorSwitchInfo).relaySwitch);
                                             [ doorSwitchInfo.interruptActiveRequest.authorized, doorSwitchInfo.interruptActiveRequest.newRequest ] 
                                                                                    = setInterruptActiveRequest(configSwitchInfo.interruptActiveRequest,
-                                                                                                              objKeySymbol(doorSwitchInfo).interruptActiveRequest);}
+                                                                                                              objKeySymbol(doorSwitchInfo).interruptActiveRequest);
+                                            if (doorSwitchInfo.interruptActiveRequest.authorized){
+                                                // validate number of seconds to wait in between request to interrupt current door move
+                                                doorSwitchInfo.waitTimeBetweenRequestInSec = setValue(configSwitchInfo.waitTimeBetweenRequestInSec,2);
+                                                validateConfigSwitchValue(doorSwitchInfo.waitTimeBetweenRequestInSec,objKeySymbol(doorSwitchInfo).waitTimeBetweenRequestInSec,2,5);
+                                                //convert interrupt active request wait time between multiple rquests from sec to ms
+                                                doorState.waitTimeInMsBetweenActiveRequests = doorSwitch.waitTimeBetweenRequestInSec * 1000; }}
                                                                 
     const activateGPIO = (GPIO, direction, edge, options = {}) => {
                                             logEvent(traceEvent, `[ GPIO = ${GPIO} ] [ direction = ${direction} ] [ edge = ${edge} ] [ options entries = ${(options != null ? Object.entries(options) : 'None passed')}]`); 
@@ -364,7 +373,7 @@ class homekitGarageDoorAccessory {
         stopAccessory(fatalError.Missing_Required_Config,`${doorswitch}`);
     //get door switch config info   
     const doorSwitchKeySymbol = objKeySymbol(doorSwitch);
-    const validDoorSwitchParams = [doorSwitchKeySymbol.GPIO, doorSwitchKeySymbol.pressTimeInMs, doorSwitchKeySymbol.moveTimeInSec, doorSwitchKeySymbol.relaySwitch, doorSwitchKeySymbol.interruptActiveRequest];
+    const validDoorSwitchParams = [doorSwitchKeySymbol.GPIO, doorSwitchKeySymbol.pressTimeInMs, doorSwitchKeySymbol.moveTimeInSec, doorSwitchKeySymbol.relaySwitch, doorSwitchKeySymbol.interruptActiveRequest, doorSwitchKeySymbol.waitTimeBetweenRequestInSec];
     validateConfigSection(config.doorSwitch, doorswitch, validDoorSwitchParams);
     configureDoorSwitch(doorswitch, config.doorSwitch, doorSwitch);
                                          
@@ -399,9 +408,6 @@ class homekitGarageDoorAccessory {
     //defensive programming check - sensors expects should match configured
     checkSensorConfig(config.sensors);
 
-    //convert physical door move time from sec to ms
-    doorState.moveTimeInMs =  doorSwitch.moveTimeInSec * 1000;
-   
     // door switch configured...open GPIO for door switch, log door switch configuration info
     doorSwitch.onOff = activateGPIO(doorSwitch.GPIO, 
                                     switchDirection(doorSwitch.relaySwitch.configValue), 
@@ -412,7 +418,7 @@ class homekitGarageDoorAccessory {
     logEvent(startupEvent,`${switchSensorName(doorswitch)} switch activation time : ${doorSwitch.pressTimeInMs} ms`);
     logEvent(startupEvent,`${switchSensorName(doorswitch)} OPEN / CLOSE time: ${doorSwitch.moveTimeInSec} seconds`);
              
-    const interruptActiveRequestConditions = () => {return (doorSwitch.interruptActiveRequest.authorized ? `ACCEPTED and current request will be stopped ${doorSwitch.interruptActiveRequest.newRequest ? `and new request EXECUTED` :``} `: `REJECTED`)};
+    const interruptActiveRequestConditions = () => {return (doorSwitch.interruptActiveRequest.authorized ? `ACCEPTED and current request will be stopped ${doorSwitch.interruptActiveRequest.newRequest ? `and new request EXECUTEDand it cannot be interrupted for ${doorSwitch.waitTimeBetweenRequestInSec} seconds` :``} `: `REJECTED`)};
     logEvent(startupEvent,`${switchSensorName(doorswitch)} when a door request is already in progress and new request is received it will be ${interruptActiveRequestConditions()}`);
           
     const configuredSensors = (garageDoorHasSensor(doorSensor2) ? `Primary and Secondary Sensors are` : `Primary Sensor   is`);
@@ -517,32 +523,33 @@ class homekitGarageDoorAccessory {
   }
 
   async setTargetDoorState(targetDoorState){
-    const setRequestActionTimer = () => { 
-                                logEvent(traceEvent,`new interrupt request - ${doorSwitch.interruptActiveRequest.authorized ? `set timer` : 'no timer'}`);
-                                return (doorSwitch.interruptActiveRequest.authorized ? 
-                                                    scheduleTimerEvent( doorSwitch.interruptActiveRequest.timerId, 
-                                                                        this.processRequestActionTimer.bind(this), 
-                                                                        doorSwitch.interruptActiveRequest.timeOutInMs ) : null)}
+    const _currentDoorState  = homeBridge.CurrentDoorState;
+    logEvent(traceEvent, `[ current door state = ${doorStateText(doorState.current)} ] [ target door state = ${doorStateText(targetDoorState)} ] `+
+    `[ homeKitRequest - ${doorState.homeKitRequest} ]`);
+                                                                  
     const newRequestAction = () => {
-                                if (!doorSwitch.interruptActiveRequest.count) 
-                                    doorSwitch.interruptActiveRequest.timerId = setRequestActionTimer();
-
-                                ++doorSwitch.interruptActiveRequest.count;
-
-                                logEvent(traceEvent,`[ override request = ${doorSwitch.interruptActiveRequest.authorized} ] [ source = ${doorRequestSource()} ] `+
-                                                    `[ currrent request = ${doorStateText(doorState.current)}] [ new request = ${doorStateText(targetDoorState)} ]`+
-                                                    `[ interrupted active request count = ${doorSwitch.interruptActiveRequest.count}]`+
-                                                    `[ interrupt active request suspending = [ ${doorSwitch.interruptActiveRequest.suspend} ]`);
-
                                 if(!doorSwitch.interruptActiveRequest.authorized || doorSwitch.interruptActiveRequest.suspend){ // not configured for multiple requests..so disregard new request
                                     logEvent(alertEvent,`Disregarding new request ${doorStateText(targetDoorState)} - currently processing ${doorStateText(doorState.current)} request`);
                                     return false
-                                }else{ // configured for multiple requests...cancel any outstanding timer or sensor interrupt monitoring
+                                  }else{ // configured for multiple requests...cancel any outstanding timer or sensor interrupt monitoring
+                                    if (!doorSwitch.interruptActiveRequest.count)
+                                        doorSwitch.interruptActiveRequest.timerId = scheduleTimerEvent( doorSwitch.interruptActiveRequest.timerId, 
+                                                                                                        this.processRequestActionTimer.bind(this), 
+                                                                                                        doorState.waitTimeInMsBetweenActiveRequests );
+
+                                    logEvent(traceEvent,`new interrupt request - ${!doorSwitch.interruptActiveRequest.count ? `set timer` : 'no timer'}`);
+
+                                    ++doorSwitch.interruptActiveRequest.count;
+
+                                    logEvent(traceEvent,`[ override request = ${doorSwitch.interruptActiveRequest.authorized} ] [ source = ${doorRequestSource()} ] `+
+                                                        `[ currrent request = ${doorStateText(doorState.current)}] [ new request = ${doorStateText(targetDoorState)} ]`+
+                                                        `[ interrupted active request count = ${doorSwitch.interruptActiveRequest.count}]`+
+                                                        `[ interrupt active request suspending = [ ${doorSwitch.interruptActiveRequest.suspend} ]`);
+
                                     logEvent(alertEvent,`Stopping current ${doorStateText(doorState.current)} ${ doorSwitch.interruptActiveRequest.newRequest ? `- starting new ${doorStateText(targetDoorState)} request` : ``}`);
-                                    return true; } } 
+                                  return true; }  } 
   
-    logEvent(traceEvent, `[ current door state = ${doorStateText(doorState.current)} ] [ target door state = ${doorStateText(targetDoorState)} ] `+
-                         `[ homeKitRequest - ${doorState.homeKitRequest} ]`);
+
 
     if (doorState.homeKitRequest) {                          
         doorState.operationInterrupted = newRequestAction();// check if the new request should be rejected or processed
@@ -557,7 +564,6 @@ class homekitGarageDoorAccessory {
                               
     doorState.homeKitRequest = true;    
     doorState.target         = targetDoorState; // Set expected current door state
-    const _currentDoorState  = homeBridge.CurrentDoorState;
     doorState.current        = (doorState.target == _currentDoorState.OPEN) ? _currentDoorState.OPENING : _currentDoorState.CLOSING;
     this.garageSwitch((doorState.operationInterrupted ? stopop : startop )); 
     this.updateCurrentDoorState(doorState.current);
