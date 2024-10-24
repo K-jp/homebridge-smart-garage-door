@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
+'use strict'
 const gpio = require('onoff').Gpio;
 const version = require('./package.json').version;
 const localFolderName = () => {const path = require('path'); return path.basename(__dirname);};
