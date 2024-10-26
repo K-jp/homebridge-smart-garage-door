@@ -377,17 +377,22 @@ class homekitGarageDoorAccessory {
       const errMsg = `configure a seperate bridge for [ ${varToUpperCase(config.name)} ]`;
       stopAccessory(fatalError.Internal_Error,errMsg);
     }
-    logEvent(traceEvent,`config entries ${Object.entries(config)} keys ${Object.keys(config)}`);                              
+
+    logEvent(traceEvent,`config keys ${Object.keys(config)}`);  
+
     //defensive programming check
     if (config.accessory != accessoryName){ 
         const errMsg = `config acessory name [ ${config.accessory} ] does not match expected name [ ${accessoryName} ]`;
         stopAccessory(fatalError.Internal_Error,errMsg);
     }
-
-    setGPIOusePolicy(config);
-
+    //check for presense of doorSwitch config object 
     if (!hasObject(config, objNameToText({config}), doorswitch, config.doorSwitch))
         stopAccessory(fatalError.Missing_Required_Config,`${doorswitch}`);
+
+    //check dir GPIO policy config parameter (ignoreGPIOinUse)
+    setGPIOusePolicy(config);
+    logEvent(startupEvent,`GPIO pins will be ${(doorState.ignoreGPIOinUse ? `forced into use`:`used if available`)}`);
+
     //get door switch config info   
     const doorSwitchKeySymbol = objKeySymbol(doorSwitch);
     const validDoorSwitchParams = [doorSwitchKeySymbol.GPIO, doorSwitchKeySymbol.pressTimeInMs, doorSwitchKeySymbol.moveTimeInSec, 
