@@ -412,13 +412,13 @@ class homekitGarageDoorAccessory {
                 stopAccessory(fatalError.Sensor_Position_Requirement);
             //use primary door sensor config info as a superset for secondary sensor config validation
             const filterdoorSensor2 = {keys:[...validDoorSensorParams],itemsToRemove:[]};
+            //remove 'position' and 'doorSensor2' text strings from list of valid config text for secondary door sensor object
             filterdoorSensor2.itemsToRemove.push(doorSensorKeySymbol.position,doorsensor2);
             const removeItem = (item) => {return !filterdoorSensor2.itemsToRemove.includes(item)}
-            //remove 'position' from doorSensor2 valid config info
-            const validdoorSensor2Keys = filterdoorSensor2.keys.filter(removeItem);
-            //get secondary door sensor config info
-            validateConfigObject(config.doorSensor.doorSensor2, doorsensor2, validdoorSensor2Keys);
-            configureDoorSensor(doorsensor2, config.doorSensor.doorSensor2, doorSensor2, openDoor);
+            //create list of valid config info for second door sensor
+            const validdoorSensor2Params = filterdoorSensor2.keys.filter(removeItem);
+            validateConfigObject(config.doorSensor.doorSensor2, doorsensor2, validdoorSensor2Params);
+            configureDoorSensor(doorsensor2, config.doorSensor.doorSensor2, doorSensor2, openDoor); //secondary door sensot position is always 'open'
             }
 
         setInterruptHandler();    
