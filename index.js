@@ -367,8 +367,9 @@ class homekitGarageDoorAccessory {
                                                 const errMsg = `Attempt to activate GPIO ${GPIO} - onoff Error = ${error}]`;
                                                 stopAccessory(fatalError.Door_Switch_OnOff_Error,errMsg);
                                             }}                                       
-    //start of plugin processing                                                                                
-    logEvent(startupEvent,`Plugin Module ${plugInModule} Version ${version} - Optional Event Logging [Trace=${traceLog.enabled} Info=${infoLog.enabled} Stats=${statsLog.enabled}]`);
+    //start of plugin processing  
+    const loggingIs = (type) => {return (!type || type == undefined) ? false : true};                                                                           
+    logEvent(startupEvent,`Plugin Module ${plugInModule} Version ${version} - Optional Logging Events [ Trace=${loggingIs(traceLog.enabled)} Info=${loggingIs(infoLog.enabled)} Stats=${loggingIs(statsLog.enabled)} ]`);
     //ensure 1:1 mapping of accessory to bridge
     if (doorSwitch.GPIO != null){
       const errMsg = `configure a seperate bridge for [ ${varToUpperCase(config.name)} ]`;
