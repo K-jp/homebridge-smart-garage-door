@@ -70,23 +70,20 @@ const fatalError  = { Missing_Required_Config:{
                       Sensor_Position_Requirement:{
                             error:5,
                             text:`Primary door sensor position must be [ ${closedDoor} ] when secondary door sensor is configured`}, 
-                      Invalid_Section:{
-                            error:6,
-                            text:`Invalid configuration section - `},
                       Door_Switch_Write_Error:{
-                            error:7,
+                            error:6,
                             text: `Door Switch Write Error (OnOff) - `},
                       Door_Sensor_Read_Error:{
-                            error:8,
+                            error:7,
                             text: `Door Sensor Read Error (OnOff) - `},
                       Door_Switch_OnOff_Error:{
-                            error:9,
+                            error:8,
                             text: `Door Switch OnOff Error (setup) - `},      
                       Door_Sensor_OnOff_Error:{
-                            error:10,
+                            error:9,
                             text: `Door Sensor OnOff Error (setup) - `},
                       Internal_Error:{
-                            error:11,
+                            error:10,
                             text:`Internal Error - `}};
 // standard log events - debug flags control trace info and stats logging - alert, warning, startup and terminating
 const logEventLevel  = [ "trace  ", 
@@ -199,14 +196,14 @@ class homekitGarageDoorAccessory {
                                               case doorsensor2:  return "Secondary Sensor";
                                               default:           return "Internal switchSensorName Error";}} 
                                             
-    const hasObject = ( configObj, sectionName, key, value ) =>{
-                                            if (!Object.hasOwn(configObj,key))
+    const hasObject = ( configObject, objectName, key, value ) =>{
+                                            if (!Object.hasOwn(configObject,key))
                                                 return false;
 
                                             if (typeof value === 'object')
                                                 return true;
 
-                                            const errMsg =`configuration parameter [${key}] in ${sectionName} section needs to an object`;
+                                            const errMsg =`configuration parameter [${key}] in ${objectName} needs to an object`;
                                             stopAccessory(fatalError.Invalid_Config_Info, errMsg)}
    
     const setValue = ( configInfo, defaultValue ) => {return (configInfo == null ? defaultValue : configInfo)}
@@ -216,13 +213,13 @@ class homekitGarageDoorAccessory {
                                                 const errMsg = `${key} : [ ${configkeyWord} ] - valid configuration parameters are [ ${keyWords} ]`;
                                                 stopAccessory(fatalError.Invalid_Config_Info, errMsg)}}
 
-    const validateConfigSection = (configObj,sectionName,validKeys) => {                                  
-                                            const configParam = Object.keys(configObj);
+    const validateConfigObject = (configObject,objectName,validKeys) => {                                  
+                                            const configParam = Object.keys(configObject);
                                             let len = configParam.length;
                                             let index = 0;
                                             while (len){
                                               if (!validKeys.includes(configParam[index])){
-                                                  const errMsg = `unknown configuration parameter [ ${configParam[index]} ] in ${sectionName} section`;
+                                                  const errMsg = `unknown configuration parameter [ ${configParam[index]} ] in ${objectName}`;
                                                   stopAccessory(fatalError.Invalid_Config_Info, errMsg)}
                                             ++index;
                                             --len}}
@@ -250,14 +247,14 @@ class homekitGarageDoorAccessory {
                                             ++index;
                                             --len}}
     
-    const setGPIOusePolicy = (configObj) => { //check for config.ignoreGPIOinUse option..default is to use GPIO if available
+    const setGPIOusePolicy = (configObject) => { //check for config.ignoreGPIOinUse option..default is to use GPIO if available
                                             const ignoreGPIOinUseSettings = ["on","off"];
                                             const [on,off] = ignoreGPIOinUseSettings;
                                             const GPIOpolicylValue  = {on:true,off:false}; 
                                             const doorStateKeySymbol = objKeySymbol(doorState);
-                                            if (Object.hasOwn(configObj,doorStateKeySymbol.ignoreGPIOinUse)){
+                                            if (Object.hasOwn(configObject,doorStateKeySymbol.ignoreGPIOinUse)){
                                                //user has specified GPIO policy to eiter force use of GPIO pins or only use if available
-                                               const ignoreGPIOinUse = setValue(varToLowerCase(configObj.ignoreGPIOinUse),off);
+                                               const ignoreGPIOinUse = setValue(varToLowerCase(configObject.ignoreGPIOinUse),off);
                                                validateConfigKeyWord(ignoreGPIOinUse,doorStateKeySymbol.ignoreGPIOinUse,ignoreGPIOinUseSettings);
                                                doorState.ignoreGPIOinUse = GPIOpolicylValue [ignoreGPIOinUse]; //set user policy
                                                }
@@ -271,7 +268,7 @@ class homekitGarageDoorAccessory {
                                                 writeFileSync(GPIOunexportPath, `${GPIO}`); // free GPIO pin for use          
                                             return (existsSync( GPIOfile ))}
 
-    const validateGPIOpin = (GPIO,sectionName) => {
+    const validateGPIOpin = (GPIO,objectName) => {
                                             const validGPIOpins = [4,5,6,12,13,16,17,18,19,20,21,22,23,24,25,26,27];
                                             const GPIOmsgHdr = `[ GPIO ${GPIO} ] `;
 
@@ -289,13 +286,13 @@ class homekitGarageDoorAccessory {
                                                 stopAccessory(fatalError.Invalid_GPIO, GPIOmsgHdr+errMsg)}
                                           
                                             if (gpio_was_inuse)
-                                                logEvent(warnEvent,`${switchSensorName(sectionName)} ${GPIOmsgHdr} was being used by another process and has been exported into this process`)}     
+                                                logEvent(warnEvent,`${switchSensorName(objectName)} ${GPIOmsgHdr} was being used by another process and has been exported into this process`)}     
                                               
-    const setGPIO = (GPIO,sectionName) => {// Validate GPIO config info 
+    const setGPIO = (GPIO,objectName) => {// Validate GPIO config info 
                                             if (GPIO == null){
-                                                const errMsg = ` - GPIO in section ${sectionName}`;
+                                                const errMsg = ` - GPIO in ${objectName}`;
                                                 stopAccessory(fatalError.Missing_Required_Config, errMsg)}
-                                            validateGPIOpin(GPIO, sectionName);
+                                            validateGPIOpin(GPIO, objectName);
                                             GPIO_Pins_Configured.push(GPIO);
                                             return GPIO}     
                                                
@@ -325,9 +322,9 @@ class homekitGarageDoorAccessory {
                                             if (garageDoorHasSensor(doorSensor2)){
                                                 doorSensor2.interrupt.handler =  this.processSecondarySensorInterrupt.bind(this);}} 
 
-    const configureDoorSensor = (sectionName,configsSensorInfo,doorSensorInfo,doorPosition) =>{ 
+    const configureDoorSensor = (objectName,configsSensorInfo,doorSensorInfo,doorPosition) =>{ 
                                             // validate door sensor config          
-                                            doorSensorInfo.GPIO = setGPIO(configsSensorInfo.GPIO,sectionName); 
+                                            doorSensorInfo.GPIO = setGPIO(configsSensorInfo.GPIO,objectName); 
                                             // set door sensor configuration info with user or default settings
                                             doorSensorInfo.actuator.value = setDeviceSignal(configsSensorInfo.actuator, objKeySymbol(doorSensorInfo).actuator);
                                             // set door sensor position and actuator value door states
@@ -341,9 +338,9 @@ class homekitGarageDoorAccessory {
                                             validateConfigKeyWord(interruptDoorRequest,paramText,interruptDoorRequestSettings);
                                             return [(interruptDoorRequest == off ? false : true ),(interruptDoorRequest == on ? true : false )];}
 
-    const configureDoorSwitch = (sectionName,configSwitchInfo,doorSwitchInfo) =>{// validate door switch configuration info
+    const configureDoorSwitch = (objectName,configSwitchInfo,doorSwitchInfo) =>{// validate door switch configuration info
                                             // validate and save GPIO in array to check for duplicates
-                                            doorSwitchInfo.GPIO                    = setGPIO(configSwitchInfo.GPIO,sectionName);
+                                            doorSwitchInfo.GPIO                    = setGPIO(configSwitchInfo.GPIO,objectName);
                                             // validate doorSwitch configuration info with user or default settings 
                                             doorSwitchInfo.pressTimeInMs           = setValue(configSwitchInfo.pressTimeInMs,1500);
                                             validateConfigSwitchValue(doorSwitchInfo.pressTimeInMs,objKeySymbol(doorSwitchInfo).pressTimeInMs,1000,2000);
@@ -389,7 +386,7 @@ class homekitGarageDoorAccessory {
     if (!hasObject(config, objNameToText({config}), doorswitch, config.doorSwitch))
         stopAccessory(fatalError.Missing_Required_Config,`${doorswitch}`);
 
-    //check dir GPIO policy config parameter (ignoreGPIOinUse)
+    //check for presense of GPIO policy config parameter (ignoreGPIOinUse)
     setGPIOusePolicy(config);
     logEvent(startupEvent,`GPIO pins will be exported ${(doorState.ignoreGPIOinUse ? ``:`if not being used by another process`)}`);
 
@@ -398,14 +395,14 @@ class homekitGarageDoorAccessory {
     const validDoorSwitchParams = [doorSwitchKeySymbol.GPIO, doorSwitchKeySymbol.pressTimeInMs, doorSwitchKeySymbol.moveTimeInSec, 
                                    doorSwitchKeySymbol.relaySwitch, doorSwitchKeySymbol.interruptDoorRequest, 
                                    doorSwitchKeySymbol.waitTimeAfterNewDoorRequest];
-    validateConfigSection(config.doorSwitch, doorswitch, validDoorSwitchParams);
+    validateConfigObject(config.doorSwitch, doorswitch, validDoorSwitchParams);
     configureDoorSwitch(doorswitch, config.doorSwitch, doorSwitch);
                                          
     if (hasObject(config, objNameToText({config}), doorsensor, config.doorSensor)){
         //get primary door sensor config info
         const doorSensorKeySymbol = objKeySymbol(doorSensor);
         const validDoorSensorParams = [doorSensorKeySymbol.GPIO, doorSensorKeySymbol.actuator, doorSensorKeySymbol.position, doorsensor2];
-        validateConfigSection(config.doorSensor, doorsensor, validDoorSensorParams);
+        validateConfigObject(config.doorSensor, doorsensor, validDoorSensorParams);
         configureDoorSensor(doorsensor, config.doorSensor, doorSensor, config.doorSensor.position);
 
         if (hasObject(config.doorSensor, doorsensor, doorsensor2, config.doorSensor.doorSensor2)){
@@ -420,7 +417,7 @@ class homekitGarageDoorAccessory {
             //remove 'position' from doorSensor2 valid config info
             const validdoorSensor2Keys = filterdoorSensor2.keys.filter(removeItem);
             //get secondary door sensor config info
-            validateConfigSection(config.doorSensor.doorSensor2, doorsensor2, validdoorSensor2Keys);
+            validateConfigObject(config.doorSensor.doorSensor2, doorsensor2, validdoorSensor2Keys);
             configureDoorSensor(doorsensor2, config.doorSensor.doorSensor2, doorSensor2, openDoor);
             }
 
