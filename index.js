@@ -50,7 +50,7 @@ const sensorObj   =() => {return {GPIO:null, onOff:null, position:null,
 const doorSensor  = sensorObj();
 const doorSensor2 = sensorObj();
 
-const doorState   = {timerId:null, homeKitRequest:false, operationInterrupted:false, waitTimeInMsBetweenActiveRequests:null, moveTimeInMs:null, last:null, current:null, target:null, obstruction:false};
+const doorState   = {timerId:null, ignoreGPIOinUse:false, homeKitRequest:false, operationInterrupted:false, waitTimeInMsBetweenActiveRequests:null, moveTimeInMs:null, last:null, current:null, target:null, obstruction:false};
 const doorLog     = {logger:null, accessory:'', name:''};
 const doorStats   = {open:{requestSource:'', time:null}, close:{requestSource:'', time:null}, obstruction:{startTime:null, endTime:null}};
 const homeBridge  = {Service:null, Characteristic:null, CurrentDoorState:null, TargetDoorState:null, ObstructionDetected:null};
@@ -183,12 +183,12 @@ class homekitGarageDoorAccessory {
     //array used to validate GPIO pins used by switch and sesnor(s) are unique
     let GPIO_Pins_Configured         = []; 
     // functions to convert object keys and variable names into strings
-    const objNameToString = (obj)   => Object.keys(obj)[0];
+    const objNameToText = (obj)   => Object.keys(obj)[0];
     const varToUpperCase  = (myVar) => {return (myVar != null ? new String(myVar).toUpperCase().trim() : myVar);}
     const varToLowerCase  = (myVar) => {return (myVar != null ? new String(myVar).toLowerCase().trim() : myVar);}
-    const doorswitch                 = objNameToString({doorSwitch});
-    const doorsensor                 = objNameToString({doorSensor});
-    const doorsensor2                = objNameToString({doorSensor2});
+    const doorswitch                 = objNameToText({doorSwitch});
+    const doorsensor                 = objNameToText({doorSensor});
+    const doorsensor2                = objNameToText({doorSensor2});
     // external functions used in constructor
     const {inRange}                  = require('lodash');
     const {writeFileSync,existsSync} = require('fs');
@@ -249,6 +249,19 @@ class homekitGarageDoorAccessory {
                                                   stopAccessory(fatalError.GPIO_conflict, errMsg)}
                                             ++index;
                                             --len}}
+    
+    const setGPIOusePolicy = (configObj) => { //check for config.ignoreGPIOinUse option..default is to use GPIO if available
+                                            const ignoreGPIOinUseSettings = ["on","off"];
+                                            const [on,off] = ignoreGPIOinUseSettings;
+                                            const GPIOpolicylValue  = {on:true,off:false}; 
+                                            const doorStateKeySymbol = objKeySymbol(doorState);
+                                            if (Object.hasOwn(configObj,doorStateKeySymbol.ignoreGPIOinUse)){
+                                               //user has specified GPIO policy to eiter force use of GPIO pins or only use if available
+                                               const ignoreGPIOinUse = setValue(varToLowerCase(configObj.ignoreGPIOinUse),off);
+                                               validateConfigKeyWord(ignoreGPIOinUse,doorStateKeySymbol.ignoreGPIOinUse,ignoreGPIOinUseSettings);
+                                               doorState.ignoreGPIOinUse = GPIOpolicylValue [ignoreGPIOinUse]; //set user policy
+                                               }
+                                            }
 
     const gpioInuse =(GPIO,unexportGPIO) => { //check availability of GPIO pin                                         
                                             const GPIOexportPath = '/sys/class/gpio/gpio';
@@ -271,7 +284,7 @@ class homekitGarageDoorAccessory {
                                                 stopAccessory(fatalError.Invalid_GPIO, GPIOmsgHdr+errMsg)}
                                                 
                                             let gpio_was_inuse = gpioInuse(GPIO);    
-                                            if (gpio_was_inuse && gpioInuse(GPIO,true)) {
+                                            if (gpio_was_inuse && gpioInuse(GPIO,doorState.ignoreGPIOinUse)) {
                                                 const errMsg = `already inuse`;
                                                 stopAccessory(fatalError.Invalid_GPIO, GPIOmsgHdr+errMsg)}
                                           
@@ -370,15 +383,20 @@ class homekitGarageDoorAccessory {
         const errMsg = `config acessory name [ ${config.accessory} ] does not match expected name [ ${accessoryName} ]`;
         stopAccessory(fatalError.Internal_Error,errMsg);
     }
-    if (!hasObject(config, objNameToString({config}), doorswitch, config.doorSwitch))
+
+    setGPIOusePolicy(config);
+
+    if (!hasObject(config, objNameToText({config}), doorswitch, config.doorSwitch))
         stopAccessory(fatalError.Missing_Required_Config,`${doorswitch}`);
     //get door switch config info   
     const doorSwitchKeySymbol = objKeySymbol(doorSwitch);
-    const validDoorSwitchParams = [doorSwitchKeySymbol.GPIO, doorSwitchKeySymbol.pressTimeInMs, doorSwitchKeySymbol.moveTimeInSec, doorSwitchKeySymbol.relaySwitch, doorSwitchKeySymbol.interruptDoorRequest, doorSwitchKeySymbol.waitTimeAfterNewDoorRequest];
+    const validDoorSwitchParams = [doorSwitchKeySymbol.GPIO, doorSwitchKeySymbol.pressTimeInMs, doorSwitchKeySymbol.moveTimeInSec, 
+                                   doorSwitchKeySymbol.relaySwitch, doorSwitchKeySymbol.interruptDoorRequest, 
+                                   doorSwitchKeySymbol.waitTimeAfterNewDoorRequest];
     validateConfigSection(config.doorSwitch, doorswitch, validDoorSwitchParams);
     configureDoorSwitch(doorswitch, config.doorSwitch, doorSwitch);
                                          
-    if (hasObject(config, objNameToString({config}), doorsensor, config.doorSensor)){
+    if (hasObject(config, objNameToText({config}), doorsensor, config.doorSensor)){
         //get primary door sensor config info
         const doorSensorKeySymbol = objKeySymbol(doorSensor);
         const validDoorSensorParams = [doorSensorKeySymbol.GPIO, doorSensorKeySymbol.actuator, doorSensorKeySymbol.position, doorsensor2];
