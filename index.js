@@ -391,7 +391,7 @@ class homekitGarageDoorAccessory {
 
     //check dir GPIO policy config parameter (ignoreGPIOinUse)
     setGPIOusePolicy(config);
-    logEvent(startupEvent,`GPIO pins will be ${(doorState.ignoreGPIOinUse ? `forced into use`:`used if available`)}`);
+    logEvent(startupEvent,`GPIO pins will be exported ${(doorState.ignoreGPIOinUse ? ``:`if not being used by another process`)}`);
 
     //get door switch config info   
     const doorSwitchKeySymbol = objKeySymbol(doorSwitch);
