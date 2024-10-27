@@ -14,6 +14,7 @@ When the accessory is configured with one or two actuators, it will use interrup
 
 When the accessory is NOT configured with one or two actuators, it will only be able to toggle a relay switch to control door movement. It will NOT be able to determine the actual garage door state (i.e. open or closed). Furthermore, the accessory will assume the door is closed when the accessory is initially added to Apple HomeKit and the accessory will not be able to report when the garage door has been open or closed by a traditional wireless door controller or wired door switch.
 
+<<<<<<< Updated upstream
 This accessory validates the configuration JSON file.
 
 Sample configuration for the requie object doorSwitch which is used to configure the relay switch.
@@ -28,3 +29,5 @@ Sample configuration for the requie object doorSwitch which is used to configure
  “GPIO”:<gpio pin>,  (**required** key:value)
 
  “pressTimeInMs”:<milliseconds> (optional) – key value range 1000 – 2000
+=======
+>>>>>>> Stashed changes
