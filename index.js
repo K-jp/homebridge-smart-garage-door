@@ -177,10 +177,10 @@ class homekitGarageDoorAccessory {
     doorLog.name                     = config.name;
     doorLog.accessory                = config.accessory;
     const _currentDoorState          = homeBridge.CurrentDoorState;
-    //array used to validate GPIO pins used by switch and sesnor(s) are unique
+    // array used to ensure that GPIO pin numbers configured are unique
     let GPIO_Pins_Configured         = []; 
     // functions to convert object keys and variable names into strings
-    const objNameToText = (obj)   => Object.keys(obj)[0];
+    const objNameToText   = (obj)   => Object.keys(obj)[0];
     const varToUpperCase  = (myVar) => {return (myVar != null ? new String(myVar).toUpperCase().trim() : myVar);}
     const varToLowerCase  = (myVar) => {return (myVar != null ? new String(myVar).toLowerCase().trim() : myVar);}
     const doorswitch                 = objNameToText({doorSwitch});
@@ -500,7 +500,7 @@ class homekitGarageDoorAccessory {
 
     this.currentDoorState = this.garageDoorOpener.getCharacteristic(homeBridge.CurrentDoorState);
     this.currentDoorState
-        .onGet(this.getCurrentState.bind(this));
+        .onGet(this.getCurrentDoorState.bind(this));
           
     this.targetDoorState = this.garageDoorOpener.getCharacteristic(homeBridge.TargetDoorState);
     this.targetDoorState
@@ -534,7 +534,7 @@ class homekitGarageDoorAccessory {
     return doorState.obstruction;
   }
     
-  async getCurrentState(){
+  async getCurrentDoorState(){
     logEvent(traceEvent,`[ current door state = ${doorStateText(doorState.current)} ]`);
     return doorState.current;
   }
