@@ -236,16 +236,16 @@ class homekitGarageDoorAccessory {
                                                   const errMsg = `expecting sensors [ ${expectedSensors} ] does not match configured sensors [ ${configuredSensors} ]`;
                                                   logEvent(warnEvent,errMsg);}}                                            
 
-    const checkForDuplicateGPIOpins = () => {      
-                                            let len = GPIO_Pins_Configured.length;
+    const checkForDuplicateGPIOpins = () => { // prevent duplicate GPIO pin configuration     
+                                            let search_len = GPIO_Pins_Configured.length - 1;
                                             let index = 0;
                                             GPIO_Pins_Configured.sort();
-                                            while (len > 1 && index < len){
+                                            while (search_len){
                                               if (GPIO_Pins_Configured[index] == GPIO_Pins_Configured[index+1]){
                                                   const errMsg = `GPIO pin [ ${GPIO_Pins_Configured[index]} ] has been specified more than once`;
-                                                  stopAccessory(fatalError.GPIO_conflict, errMsg)}
-                                            ++index;
-                                            --len}}
+                                                  stopAccessory(fatalError.GPIO_conflict, errMsg)};
+                                              ++index;
+                                            --search_len}}
     
     const setGPIOusePolicy = (configObject) => { // check for config.ignoreGPIOinUse option..default is to use GPIO if available
                                             const ignoreGPIOinUseSettings = ["on","off"];
@@ -265,7 +265,7 @@ class homekitGarageDoorAccessory {
                                             const GPIOunexportPath = '/sys/class/gpio/unexport';
                                             const GPIOfile = GPIOexportPath + GPIO + '/';
                                             if (unexportGPIO && existsSync( GPIOfile )) 
-                                                writeFileSync(GPIOunexportPath, `${GPIO}`); // free GPIO pin for use          
+                                                writeFileSync(GPIOunexportPath, `${GPIO}`); // free GPIO pin that was previously exported by another process        
                                             return (existsSync( GPIOfile ))}
 
     const validateGPIOpin = (GPIO,objectName) => {
@@ -293,7 +293,7 @@ class homekitGarageDoorAccessory {
                                                 const errMsg = ` - GPIO in ${objectName}`;
                                                 stopAccessory(fatalError.Missing_Required_Config, errMsg)}
                                             validateGPIOpin(GPIO, objectName);
-                                            GPIO_Pins_Configured.push(GPIO);
+                                            GPIO_Pins_Configured.push(GPIO); //store GPIO pin for trapping duplicate pin configuration
                                             return GPIO}     
                                                
     const setDeviceSignal = (connectionlValue,paramText) => {                                                                                                
