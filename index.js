@@ -659,32 +659,34 @@ class homekitGarageDoorAccessory {
   }
 
   updateTargetDoorState(currentDoorOpenClosed,doorObstruction,currentDoorState){
-    logEvent(traceEvent, `[ source = ${doorRequestSource()} ] [ request = ${doorStateText(doorState.target)} ] [ sensor state = ${doorStateText(currentDoorState)} ] `+ 
-                         `[ door state = ${doorStateText(currentDoorOpenClosed)} ][ door operation interrupted = ${doorState.operationInterrupted}]`);
     
     const resetSwitchDirection = () => {
-                                logEvent(traceEvent, `[ GPIO = ${doorSwitch.GPIO} ] [ direction value = ${switchDirection(doorSwitch.relaySwitch.configValue)} ]`); 
-                                try {
-                                    doorSwitch.onOff.setDirection(switchDirection(doorSwitch.relaySwitch.configValue));
-                                } catch(error){  
-                                    const errMsg = `Attempt to ${op} door switch failed - [ GPIO = ${doorSwitch.GPIO} - setDirection error = ${error} ]`;
-                                    stopAccessory(fatalError.Door_Switch_Write_Error,errMsg);
-                                };}
-    
-    const resetSwitchActiveLow = () => {
-                                  logEvent(traceEvent, `[ GPIO = ${doorSwitch.GPIO} ] [ active low value = ${switchSignal(doorSwitch.relaySwitch.configValue)} ]`); 
-                                  try {
-                                      doorSwitch.onOff.setActiveLow(switchSignal(doorSwitch.relaySwitch.configValue));
-                                  } catch(error){  
-                                      const errMsg = `Attempt to ${op} door switch failed - [ GPIO = ${doorSwitch.GPIO} - setActiveLow error = ${error} ]`;
-                                      stopAccessory(fatalError.Door_Switch_Write_Error,errMsg);
-                                  };}
-    
+      logEvent(traceEvent, `[ GPIO = ${doorSwitch.GPIO} ] [ direction value = ${switchDirection(doorSwitch.relaySwitch.configValue)} ]`); 
+      try {
+        doorSwitch.onOff.setDirection(switchDirection(doorSwitch.relaySwitch.configValue));
+      } catch(error){  
+        const errMsg = `Attempt to ${op} door switch failed - [ GPIO = ${doorSwitch.GPIO} - setDirection error = ${error} ]`;
+        stopAccessory(fatalError.Door_Switch_Write_Error,errMsg);
+      };}
+      
+      const resetSwitchActiveLow = () => {
+        logEvent(traceEvent, `[ GPIO = ${doorSwitch.GPIO} ] [ active low value = ${switchSignal(doorSwitch.relaySwitch.configValue)} ]`); 
+        try {
+          doorSwitch.onOff.setActiveLow(switchSignal(doorSwitch.relaySwitch.configValue));
+        } catch(error){  
+          const errMsg = `Attempt to ${op} door switch failed - [ GPIO = ${doorSwitch.GPIO} - setActiveLow error = ${error} ]`;
+          stopAccessory(fatalError.Door_Switch_Write_Error,errMsg);
+        };}
+        
+    const requestSource = doorRequestSource();   
+    logEvent(traceEvent, `[ source = ${requestSource} ] ${(requestSource == homekit ? `[ request = ${doorStateText(doorState.target)} ]` : ``)} [ sensor state = ${doorStateText(currentDoorState)} ] `+ 
+                         `[ door state = ${doorStateText(currentDoorOpenClosed)} ][ door operation interrupted = ${doorState.operationInterrupted}]`);
     // update door state info
     doorState.current     = currentDoorState;
     doorState.target      = currentDoorOpenClosed;
-    doorState.obstruction = doorObstruction; 
-    this.targetDoorState.updateValue(doorState.target);
+    doorState.obstruction = doorObstruction;
+    if (requestSource == homekit) //homekit request..update target state
+        this.targetDoorState.updateValue(doorState.target);
     this.updateCurrentDoorState(doorState.current,doorState.obstruction);
     
     if (garageDoorHasSensor(doorSensor)){
