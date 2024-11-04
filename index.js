@@ -683,14 +683,14 @@ class homekitGarageDoorAccessory {
                          `[ door state = ${doorStateText(currentDoorOpenClosed)} ][ door operation interrupted = ${doorState.operationInterrupted}]`);
     // update door state info
     doorState.current     = currentDoorState;
+    doorState.target      = currentDoorOpenClosed;
     doorState.obstruction = doorObstruction;
-    if (requestSource == homekit){//homekit request..update target state
-        doorState.target      = currentDoorOpenClosed;
-        this.targetDoorState.updateValue(doorState.target);}
+    if (requestSource == homekit) //homekit request..update target state
+        this.targetDoorState.updateValue(doorState.target);
     this.updateCurrentDoorState(doorState.current,doorState.obstruction);
     
     if (garageDoorHasSensor(doorSensor)){
-        this.collectDoorStats((requestSource == homekit ? doorState.target : doorState.current) ,doorState.obstruction); // collect door stats information and reset switch info
+        this.collectDoorStats(doorState.target,doorState.obstruction); // collect door stats information and reset switch info
         this.activateDoorStateInterrupt(doorState.current); // rearm door sensor interrupts
     }else // reset switch info for switch only configuration
         {resetDoorSwitchActiveInfo();}
