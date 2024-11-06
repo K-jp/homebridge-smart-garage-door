@@ -960,19 +960,20 @@ class homekitGarageDoorAccessory {
   }
 
   doorMoveEvent(sensor,sensorValue,err){
-
-    const monitorDoorMove = (sensor,desiredTargetDoorState,currentDoorOpeningClosing) => {
-      logEvent(traceEvent,`[ desired target state = ${doorStateText(desiredTargetDoorState)} ][ door state = ${doorStateText(currentDoorOpeningClosing)} ]`);
-      this.updateTargetDoorState(desiredTargetDoorState);//need to update target door state to simulate a homekit request
-      this.updateCurrentDoorState(currentDoorOpeningClosing);
-      const completeDoorOpenClosed =this.processDoorInterrupt.bind(this,sensor)
-      doorState.timerId = scheduleTimerEvent(doorState.timerId,completeDoorOpenClosed,doorState.moveTimeInMs);}
-      
-      const currentDoorState  = this.getGarageDoorSensor(sensor,sensorValue);
-      const requestSource     = doorRequestSource();
-      const _currentDoorState = homeBridge.CurrentDoorState;
+    const _currentDoorState = homeBridge.CurrentDoorState;
+    const currentDoorState  = this.getGarageDoorSensor(sensor,sensorValue);
+    const requestSource     = doorRequestSource();
       
     logEvent(traceEvent, `[ source = ${requestSource} ][ door state = ${doorStateText(currentDoorState)} ][ sensor door position = ${sensor.position}]`);
+
+    const monitorDoorMove = (sensor,desiredTargetDoorState,currentDoorOpeningClosing) => {
+                            logEvent(traceEvent,`[ desired target state = ${doorStateText(desiredTargetDoorState)} ] `+
+                                                `[ door state = ${doorStateText(currentDoorOpeningClosing)} ]`);
+                            this.updateTargetDoorState(desiredTargetDoorState);//need to update target door state to simulate a homekit request
+                            this.updateCurrentDoorState(currentDoorOpeningClosing);
+                            const completeDoorOpenClosed =this.processDoorInterrupt.bind(this,sensor);
+                            doorState.timerId = scheduleTimerEvent(doorState.timerId,completeDoorOpenClosed,doorState.moveTimeInMs);}
+      
     if (requestSource == garageOpenner && garageDoorHasSensor(doorSensor2)) {
         logEvent(traceEvent,`[ GPIO = ${sensor.GPIO} ][ sensor = ${sensorValue} ] [ err = ${err} ]`);
         // door opening or closing via request from native door wireless or wired button
