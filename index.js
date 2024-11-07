@@ -468,7 +468,7 @@ class homekitGarageDoorAccessory {
             logSensorStartupinfo(doorSensor2,doorsensor2);}
 
         // get cuurent door state info
-        [doorState.target,doorState.obstruction,doorState.current] = this.setDoorStateInfo(doorSensor); 
+        [doorState.target,doorState.obstruction,doorState.current] = this.getDoorStateInfo(doorSensor); 
         logCurrentDoorState();
      
         if (doorState.target != _currentDoorState .CLOSED)
@@ -658,7 +658,7 @@ class homekitGarageDoorAccessory {
     let currentDoorOpenClosed,doorObstruction,currentDoorState;
     this.cancelAllEvents(false);
     if (garageDoorHasSensor(doorSensor)){
-        [currentDoorOpenClosed,doorObstruction,currentDoorState] = this.setDoorStateInfo(doorSensor);
+        [currentDoorOpenClosed,doorObstruction,currentDoorState] = this.getDoorStateInfo(doorSensor);
     }else{
         doorObstruction  = false;
         currentDoorOpenClosed = currentDoorState = doorState.target;
@@ -916,7 +916,7 @@ class homekitGarageDoorAccessory {
                         `[ queued listener(s) = ${sensor.interrupt.count} ]`);
   }
 
-  setDoorStateInfo(sensor,sensorValue){
+  getDoorStateInfo(sensor,sensorValue){
     const _currentDoorState = homeBridge.CurrentDoorState;
     logEvent(traceEvent,`[ GPIO = ${sensor.GPIO} - sensor = ${sensorValue == null ? 0 : sensorValue} ]`);
 
@@ -955,7 +955,7 @@ class homekitGarageDoorAccessory {
     // clear any pending homekit timeout and then update the door state
     logEvent(traceEvent,`[ GPIO = ${sensor.GPIO} ] [ source = ${doorRequestSource()} ]`);
     this.cancelAllEvents(false);
-    const [currentDoorOpenClosed,doorObstruction,currentDoorState] = this.setDoorStateInfo(sensor,sensorValue);
+    const [currentDoorOpenClosed,doorObstruction,currentDoorState] = this.getDoorStateInfo(sensor,sensorValue);
     this.updateDoorState(currentDoorOpenClosed,doorObstruction,currentDoorState); 
   }
 
