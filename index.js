@@ -474,7 +474,7 @@ class homekitGarageDoorAccessory {
         if (doorState.target != _currentDoorState .CLOSED)
             this.collectDoorStats(doorState.current,doorState.obstruction);
 
-        this.activateDoorStateInterrupt(doorState.current); //set up door sensor(s) interrupt monitoring 
+        this.activateDoorSensor(doorState.current); //set up door sensor(s) interrupt monitoring 
     }else{
         // no door sensor switch only...so assume door is closed
         doorState.target = doorState.current = _currentDoorState .CLOSED;
@@ -629,7 +629,7 @@ class homekitGarageDoorAccessory {
                                   doorState.timerId);
                                   
         if (garageDoorHasSensor(doorSensor))
-            this.activateDoorStateInterrupt( doorState.current);//use both sensor and timer to determine when door move has completed                             
+            this.activateDoorSensor( doorState.current);//use both sensor and timer to determine when door move has completed                             
       break;
       case stopop: // this will stop the garagdoor motor
         this.cancelAllEvents(true);// stop listening for door sensor interrupts since an interrupt will occur when the button is pushed
@@ -696,7 +696,7 @@ class homekitGarageDoorAccessory {
     
     if (garageDoorHasSensor(doorSensor)){
         this.collectDoorStats(doorState.target,doorState.obstruction); // collect door stats information and reset switch info
-        this.activateDoorStateInterrupt(doorState.current); // rearm door sensor interrupts
+        this.activateDoorSensor(doorState.current); // rearm door sensor interrupts
     }else // reset switch info for switch only configuration
         {resetDoorSwitchActiveInfo();}
       
@@ -812,7 +812,7 @@ class homekitGarageDoorAccessory {
     return currentDoorState;
   }
 
-  activateDoorStateInterrupt(doorstate) {
+  activateDoorSensor(doorstate) {
     const _currentDoorState  = homeBridge.CurrentDoorState;
     logEvent(traceEvent,`[ current door state = ${doorStateText(doorstate)} [ last door state = ${doorStateText(doorState.last)} ]]`);
     
@@ -981,7 +981,7 @@ class homekitGarageDoorAccessory {
           case  openDoor: // secondary sensor...check primary sensor to confirm door is closing
 
             if (currentDoorState == _currentDoorState.CLOSED && this.getGarageDoorSensor(doorSensor) == _currentDoorState.OPEN){  
-                this.activateDoorStateInterrupt(_currentDoorState.CLOSING)
+                this.activateDoorSensor(_currentDoorState.CLOSING)
                 monitorDoorMove(sensor,currentDoorState,_currentDoorState.CLOSING);
                 return;}
 
@@ -989,7 +989,7 @@ class homekitGarageDoorAccessory {
           case  closedDoor: // primary sensor...check secondary sensor to confirm door is opening
 
             if (currentDoorState == _currentDoorState.OPEN && this.getGarageDoorSensor(doorSensor2) == _currentDoorState.CLOSED){ 
-                this.activateDoorStateInterrupt(_currentDoorState.OPENING);  
+                this.activateDoorSensor(_currentDoorState.OPENING);  
                 monitorDoorMove(sensor,currentDoorState,_currentDoorState.OPENING);
                 return;}
 
