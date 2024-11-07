@@ -515,7 +515,7 @@ class homekitGarageDoorAccessory {
         doorSwitch.interruptDoorRequest.timerId  = killTimer(doorSwitch.interruptDoorRequest.timerId);
     doorState.timerId  = killTimer( doorState.timerId);
     if (garageDoorHasSensor(doorSensor))
-        this.setAllSensorInterrupts(cancelInterrupt);
+        this.setAllDoorSensors(cancelInterrupt);
   }
 
   processRequestActionTimer(){
@@ -834,7 +834,7 @@ class homekitGarageDoorAccessory {
 
     const activatePrimarySensor = (sensor) => {
                               setInterruptSignal(sensor,setPrimaryEdgeSignal(sensor));
-                              this.setGarageDoorInterrupt(sensor,activateInterrupt);}
+                              this.setGarageDoorSensor(sensor,activateInterrupt);}
 
     const setDualSensorEdgeSignal = (sensor) => {
                               if (doorState.last == _currentDoorState.STOPPED){ 
@@ -843,10 +843,10 @@ class homekitGarageDoorAccessory {
     
     const activateBothSensors = (sensor1,sensor2) => {                        
                               setInterruptSignal(sensor1,setDualSensorEdgeSignal(sensor1));
-                              this.setGarageDoorInterrupt(sensor1,activateInterrupt);
+                              this.setGarageDoorSensor(sensor1,activateInterrupt);
                               if (doorState.last == _currentDoorState.STOPPED || doorstate == _currentDoorState.STOPPED){
                                   setInterruptSignal(sensor2,setDualSensorEdgeSignal(sensor2));
-                                  this.setGarageDoorInterrupt(sensor2,activateInterrupt);}}
+                                  this.setGarageDoorSensor(sensor2,activateInterrupt);}}
                                   
     const twoSensors = garageDoorHasSensor(doorSensor2);
                             
@@ -884,14 +884,14 @@ class homekitGarageDoorAccessory {
     logEvent(traceEvent,`[ no interrupt activation ]`);
   }
 
-  setAllSensorInterrupts(interruptAction){
+  setAllDoorSensors(interruptAction){
     logEvent(traceEvent,`[ request ${interruptAction} ] `);
-    this.setGarageDoorInterrupt(doorSensor,interruptAction);// activate or cancel listening for door sensor interrupts
+    this.setGarageDoorSensor(doorSensor,interruptAction);// activate or cancel listening for door sensor interrupts
     if (garageDoorHasSensor(doorSensor2))
-        this.setGarageDoorInterrupt(doorSensor2,interruptAction);// activate or cancel listening for door sensor2 interrupts
+        this.setGarageDoorSensor(doorSensor2,interruptAction);// activate or cancel listening for door sensor2 interrupts
   }
 
-  setGarageDoorInterrupt(sensor,interruptAction){
+  setGarageDoorSensor(sensor,interruptAction){
     logEvent(traceEvent,`[ request ${interruptAction} GPIO = ${sensor.GPIO} ] `+
                         `[ queued interrupts = ${sensor.interrupt.count} ]`);
 
@@ -959,7 +959,7 @@ class homekitGarageDoorAccessory {
     this.updateDoorState(currentDoorOpenClosed,doorObstruction,currentDoorState); 
   }
 
-  doorMoveEvent(sensor,sensorValue,err){
+  processDoorMoveEvent(sensor,sensorValue,err){
     const _currentDoorState = homeBridge.CurrentDoorState;
     const currentDoorState  = this.getGarageDoorSensor(sensor,sensorValue);
     const requestSource     = doorRequestSource();
@@ -1003,24 +1003,24 @@ class homekitGarageDoorAccessory {
     this.processDoorInterrupt(sensor,sensorValue,err); //door is either OPEN, CLOSED or STOPPED
   }
 
-  resetGarageDoorInterrupt(sensor){
+  resetGarageDoorSensor(sensor){
     logEvent(traceEvent,`[ last door state = ${doorStateText(doorState.last)} ]`);
     const _currentDoorState  = homeBridge.CurrentDoorState;
     if (doorState.last == _currentDoorState.STOPPED){
-        this.setAllSensorInterrupts(cancelInterrupt)
+        this.setAllDoorSensors(cancelInterrupt)
     }else
-        this.setGarageDoorInterrupt(sensor,cancelInterrupt);
+        this.setGarageDoorSensor(sensor,cancelInterrupt);
   }
 
   processPrimarySensorInterrupt(err,doorSensorValue){ 
     logEvent(traceEvent,`[ GPIO = ${doorSensor.GPIO} ] [ actuator = ${doorSensor.actuator.value} ] [ sensor value = ${doorSensorValue} ]`);
-    this.resetGarageDoorInterrupt(doorSensor);
-    this.doorMoveEvent(doorSensor,doorSensorValue,err)
+    this.resetGarageDoorSensor(doorSensor);
+    this.processDoorMoveEvent(doorSensor,doorSensorValue,err)
   }
 
   processSecondarySensorInterrupt(err,doorSensorValue){ 
     logEvent(traceEvent,`[ GPIO = ${doorSensor2.GPIO} ] [ actuator = ${doorSensor2.actuator.value} ] [ sensor value = ${doorSensorValue} ]`);
-    this.resetGarageDoorInterrupt(doorSensor2);
-    this.doorMoveEvent(doorSensor2,doorSensorValue,err);            
+    this.resetGarageDoorSensor(doorSensor2);
+    this.processDoorMoveEvent(doorSensor2,doorSensorValue,err);            
   }
 }
