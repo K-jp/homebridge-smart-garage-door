@@ -479,12 +479,8 @@ class homekitGarageDoorAccessory {
         // no door sensor switch only...so assume door is closed
         doorState.target = doorState.current = _currentDoorState .CLOSED;
         logCurrentDoorState();
-    }    
-  }
-                     
-  getServices(){
-    logEvent(traceEvent);
-    // configure garage door accessory for homebridge
+    } 
+    // create a garage door service
     this.garageDoorService = new homeBridge.Service.AccessoryInformation();      
     this.garageDoorService
         .setCharacteristic(homeBridge.Characteristic.Manufacturer, accessoryInfo.developer)
@@ -504,8 +500,11 @@ class homekitGarageDoorAccessory {
           
     this.obstructionDetected = this.garageDoorOpener.getCharacteristic(homeBridge.ObstructionDetected);
     this.obstructionDetected
-        .onGet(this.getObstructionDetected.bind(this));       
-
+        .onGet(this.getObstructionDetected.bind(this));     
+  }
+                     
+  getServices(){
+    logEvent(traceEvent);
     return [this.garageDoorService, this.garageDoorOpener];
   }
 
