@@ -1,0 +1,14 @@
+{
+  "name": "Garage Door",
+  "ignoreGPIOinUse": "off",
+  "sensors": 2,
+  "doorSwitch": {
+    "GPIO": 6
+  },
+  "doorSensor": {
+    "GPIO": 23
+  },
+  "doorSensor2": {
+    "GPIO": 17
+  }
+}
