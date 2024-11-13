@@ -1,0 +1,161 @@
+{
+"pluginAlias": "smartgaragedoor",
+  "pluginType": "accessory",
+  "singular": false,
+  "schema": {
+    "definitions": {
+      "ValidPin":{
+        "type": "integer",
+        "enum":[5,6,13,16,17,22,23,24,25,26,27]
+      },
+      "SensorSignal":{
+        "type": "string",
+        "oneOf": [
+          { "title":"Normally Open",  "enum":["NO"] },
+          { "title":"Normally Closed","enum":["NC"] }
+        ]
+      }
+    },
+    "type": "object",
+    "properties": {
+    "name": {
+      "title": "Garage Door Name",
+      "description": "Garage door name ",
+        "type": "string",
+        "default": "Garage Door",
+        "required": true 
+      },
+      "ignoreGPIOinUse":{
+        "title": "Ignore current GPIO state ",
+        "description": "Determines action on how this accessory responds if a GPIO is locked. [Default: off]",
+        "type": "string",
+        "placeholder": "off",
+        "default": "off",
+        "oneOf": [
+          { "title":"off - Accessory will STOP if GPIO is locked", "enum":["off"] },
+          { "title":"on  - Accessory will unlock GPIO and continue","enum":["on"] }
+        ],
+        "required": false
+      },
+      "sensors":{
+        "title": "sensors",
+        "description": "Number of door accuator sensor(s) installed [Default: 0]",
+        "type": "integer",
+        "placeholder": 0,
+        "default":0,
+        "oneOf": [
+          { "title":"No sensor installed",  "enum":[0] },
+          { "title":"(1) sensor installed", "enum":[1] },
+          { "title":"(2) sensors installed","enum":[2] }
+        ]
+      },
+      "doorSwitch":{
+        "type": "object",
+        "properties": {
+          "GPIO":{
+            "title": "GPIO",
+            "description":"Garage door relay switch GPIO",
+            "$ref": "#/definitions/ValidPin",
+            "required": true
+          },
+          "pressTimeInMs":{
+            "title":"pressTimeInMs",
+            "description": "The number of milliseconds to wait before releasing the relay switch. [Default: 1500 milliseconds]",
+            "type": "integer",
+            "placeholder": 1500,
+            "minumum": 1000,
+            "maximum": 2000,
+            "required": false
+          },
+          "moveTimeInSec":{
+            "title":"moveTimeInSec",
+            "description": "The number of seconds to wait before garage door to open or close is expected to be completed. [Default: 12 seconds]",
+            "type": "integer",
+            "placeholder": 12,
+            "minumum": 10,
+            "maximum": 15,
+            "required": false
+          },
+          "relaySwitch":{
+            "title":"Relay Switch Connection",
+            "description": "Door relay switch connection type. [Default: NO - Normally Open]",
+            "$ref": "#/definitions/SensorSignal",
+            "placeholder": "NO",
+            "required": false
+          },
+          "interruptActiveRequest":{
+            "title":"Interrupt Active Request",
+            "description": "Allow current open or close door operation to be stopped, reversed or do nothing when a new request is received.  [Default: stop]",
+            "type": "string",
+            "placeholder": "stop",
+            "oneOf": [
+              { "title":"Stop door movement",   "enum":["stop"]},
+              { "title":"Do NOT stop movement", "enum":["off"] },
+              { "title":"Reverse door movement","enum":["on"] }
+            ],
+            "required": false
+          },
+          "waitTimeAfterNewDoorRequest":{
+            "title":"Interrupt door request wait time",
+            "description": "The number of seconds to wait in between requests to reverse the current door move operation. [Default: 2 seconds]",
+            "type": "integer",
+            "placeholder": 2,
+            "minumum": 2,
+            "maximum": 5,
+            "required": false
+          }
+      }
+    },
+      "doorSensor":{
+        "condition": {"functionBody": "return model.sensors !== 0;"},
+        "type": "object",
+        "properties": {
+          "GPIO":{ 
+            "title":"GPIO",
+            "description":"Primary Sensor",
+            "$ref": "#/definitions/ValidPin",
+            "required":true
+          },  
+        "actuator":{
+          "title":"primary sensor connection",
+          "description": "Primary accuator sensor connection type. [Default: NO - Normally Open]",
+          "$ref": "#/definitions/SensorSignal",
+          "placeholder": "NO",
+          "required": false
+          },
+        "position":{
+          "condition": {"functionBody": "return model.sensors === 1;"},
+          "title":"primary sensor door orientation",
+          "description": "Sensor installed to detect when the door is either open or closed. [Default: closed]",
+          "type": "string",
+          "placeholder": "closed",
+            "oneOf": [
+                { "title":"fully open",   "enum":["open"] },
+                { "title":"fully closed", "enum":["closed"] }],
+          "required": false
+          }
+        }
+      },       
+      "doorSensor2":{
+        "condition": {"functionBody": "return model.sensors === 2;"},  
+        "type": "object",
+        "properties": {
+          "GPIO":{ 
+            "title":"GPIO",
+            "description":"Secondary Sensor",
+            "$ref": "#/definitions/ValidPin",
+            "required":true
+          }, 
+          "actuator":{
+            "title":"secondary sensor connection",
+            "description": "Secondary accuator sensor connection type. [Default: NO - Normally Open]",
+            "$ref": "#/definitions/SensorSignal",
+            "placeholder": "NO",
+            "required": false
+          } 
+        }
+      }
+  },
+  "required":["name","sensors","doorSwitch"]
+ }
+}
