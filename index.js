@@ -55,6 +55,7 @@ const doorState   = {timerId:null, ignoreGPIOinUse:false, sensors:0, homeKitRequ
 const doorLog     = {logger:null, accessory:'', name:''};
 const doorStats   = {open:{requestSource:'', time:null}, close:{requestSource:'', time:null}, obstruction:{startTime:null, endTime:null}};
 const homeBridge  = {Service:null, Characteristic:null, CurrentDoorState:null, TargetDoorState:null, ObstructionDetected:null};
+const faultState  = {Handler:null, LoopHandler:null, WaitTimeSec:5,timerId:null, errmsg:null };
 
 const fatalError  = { Missing_Required_Config:{
                             error:1,
@@ -95,6 +96,7 @@ const logEventLevel  = [ "trace  ",
                          "startup", 
                          "terminating" ];
 const [traceEvent, infoEvent, statsEvent, alertEvent, warnEvent, startupEvent, terminateEvent] = logEventLevel;
+const { log } = require('console');
 const debug           = require('debug');
 const traceLog        = debug(`${accessoryName}:trace`);
 const infoLog         = debug(`${accessoryName}:info`);
@@ -137,9 +139,10 @@ const getCaller = (stack)              => {// get calling method / function name
                                            const reDot = /[.]/;
                                            return (stack.search(reDot) == -1 ? stack : stack.split(".")[1]);}
 
-const stopAccessory = (exitCode, msg)  => {// log and terminate execution                                        
-                                            logEvent(terminateEvent,`${getCaller(new Error().stack.split("\n")[2].trim().split(" ")[1])} - ${(msg != null ? exitCode.text + msg : exitCode.text)}`);  
-                                            throw process.exit(1);}
+const stopAccessory = (exitCode, msg)  => {//accessroy has encounterd fatal error - stop acccepting requsts and enter error reporting loop                                     
+                                            faultState.errmsg = `${getCaller(new Error().stack.split("\n")[2].trim().split(" ")[1])} - ${(msg != null ? exitCode.text + msg : exitCode.text)}`;
+                                            faultState.timerId = scheduleTimerEvent(faultState.timerId,faultState.LoopHandler,faultState.WaitTimeSec * 1000);}
+
 
 const logEvent = (event, msg)          => { // logging function for all events
                                             switch (event) {
@@ -351,6 +354,10 @@ class homekitGarageDoorAccessory {
                                             validateConfigValue(doorSwitchInfo.moveTimeInSec,objKeySymbol(doorSwitchInfo).moveTimeInSec,10,15);
                                             doorSwitchInfo.relaySwitch.writeValue  = doorSwitchInfo.relaySwitch.configValue
                                                                                    = setDeviceSignal(configSwitchInfo.relaySwitch, objKeySymbol(doorSwitchInfo).relaySwitch);
+                                                                      //-----------authorized-----newRequest--------//
+                                                                      //   stop |     true           false          //
+                                                                      //    on  |     true           true           //
+                                                                      //    off |     false          false          //
                                             [ doorSwitchInfo.interruptDoorRequest.authorized, doorSwitchInfo.interruptDoorRequest.newRequest ] 
                                                                                    = setinterruptDoorRequest(configSwitchInfo.interruptDoorRequest,
                                                                                                               objKeySymbol(doorSwitchInfo).interruptDoorRequest);
@@ -362,31 +369,53 @@ class homekitGarageDoorAccessory {
                                                 doorState.waitTimeInMsBetweenActiveRequests = doorSwitch.waitTimeAfterNewDoorRequest * 1000; }}
                                                                 
     const activateGPIO = (GPIO, direction, edge, options = {}) => {
-                                            logEvent(traceEvent, `[ GPIO = ${GPIO} ] [ direction = ${direction} ] [ edge = ${edge} ] [ options entries = ${(options != null ? Object.entries(options) : 'None passed')}]`); 
+                                            logEvent(traceEvent, `[ GPIO = ${GPIO} ] [ direction = ${direction} ] [ edge = ${edge} ] `+
+                                                                 `[ options entries = ${(options != null ? Object.entries(options) : 'None passed')}]`); 
                                             try { return new gpio(GPIO,direction,edge,options);
                                             } catch(error){  
                                                 const errMsg = `Attempt to activate GPIO ${GPIO} - onoff Error = ${error}]`;
                                                 stopAccessory(fatalError.Door_Switch_OnOff_Error,errMsg);
                                             }}                                       
-    // start of plugin processing  
+    // plugin start
     const loggingIs = (type) => {return (!type || type == undefined) ? false : true};                                                                           
-    logEvent(startupEvent,`Plugin Module ${plugInModule} Version ${version} - Optional Logging Events [ Trace=${loggingIs(traceLog.enabled)} Info=${loggingIs(infoLog.enabled)} Stats=${loggingIs(statsLog.enabled)} ]`);
-    
+    logEvent(startupEvent,`Plugin Module ${plugInModule} Version ${version} - Optional Logging Events `+
+                          `[ Trace=${loggingIs(traceLog.enabled)} Info=${loggingIs(infoLog.enabled)} Stats=${loggingIs(statsLog.enabled)} ]`);
+                          
+    logEvent(traceEvent,`config keys ${Object.keys(config)}`);  
+
+    //initialize FaultState info
+    faultState.Handler = this.processFault.bind(this);
+    faultState.LoopHandler = this.processLoopOnFault.bind(this);
+
     // ensure 1:1 mapping of accessory to bridge
     if (doorSwitch.GPIO != null){
         const errMsg = `configure a seperate bridge for [ ${varToUpperCase(config.name)} ]`;
         stopAccessory(fatalError.Internal_Error,errMsg);}
-
-    logEvent(traceEvent,`config keys ${Object.keys(config)}`);  
 
     // defensive programming check
     if (config.accessory != accessoryName){ 
         const errMsg = `config acessory name [ ${config.accessory} ] does not match expected name [ ${accessoryName} ]`;
         stopAccessory(fatalError.Internal_Error,errMsg);
     }
+
     // validate number of sensors configured
     validateConfigValue(config.sensors,objKeySymbol(config).sensors,0,2);
-    doorState.sensors = config.sensors;
+
+    // count number of sensor objects configured
+    if (hasObject(config, objNameToText({config}), doorsensor, config.doorSensor))
+       doorState.sensors = doorState.sensors + 1;
+    if (hasObject(config, objNameToText({config}), doorsensor2, config.doorSensor2))
+      doorState.sensors = doorState.sensors + 1;
+
+    // compare number of sensor objects to configured sensors
+    if (doorState.sensors !== config.sensors){
+       const errMsg = `configuration mismatch - was expecting ${config.sensors} sensor(s) - configuration contains ${doorState.sensors} sensor(s)`;
+       if (doorState.sensors < config.sensors){
+          stopAccessory(fatalError.Internal_Error,errMsg)
+       } else {
+          logEvent(warnEvent,errMsg);
+       }
+    }
 
     // check for presense of doorSwitch config object 
     if (!hasObject(config, objNameToText({config}), doorswitch, config.doorSwitch))
@@ -456,8 +485,10 @@ class homekitGarageDoorAccessory {
     logEvent(startupEvent,`${switchSensorName(doorswitch)} switch activation time : ${doorSwitch.pressTimeInMs} ms`);
     logEvent(startupEvent,`${switchSensorName(doorswitch)} OPEN / CLOSE time: ${doorSwitch.moveTimeInSec} seconds`);
              
-    const interruptDoorRequestConditions = () => {return (doorSwitch.interruptDoorRequest.authorized ? `ACCEPTED and current door open or close request will be stopped ${doorSwitch.interruptDoorRequest.newRequest ? `and new request EXECUTED [ NOTE: the new request cannot be interrupted for ${doorSwitch.waitTimeAfterNewDoorRequest} seconds ]` :``} `: `REJECTED`)};
-    logEvent(startupEvent,`${switchSensorName(doorswitch)} when a door open or close request is already in progress and new request is received it will be ${interruptDoorRequestConditions()}`);
+    const interruptDoorRequestConditions = () => {return (doorSwitch.interruptDoorRequest.authorized ? 
+                                                         `ACCEPTED - current request will be stopped ${doorSwitch.interruptDoorRequest.newRequest ? 
+                                                         ` - new request EXECUTED [ NOTE: the new request cannot be interrupted for ${doorSwitch.waitTimeAfterNewDoorRequest} seconds ]` :``} `: `REJECTED`)};
+    logEvent(startupEvent,`${switchSensorName(doorswitch)} when a door open or close request is already in progress, a new request received will be ${interruptDoorRequestConditions()}`);
           
     const configuredSensors = (garageDoorHasSensor(doorSensor2) ? `Primary and Secondary Sensors are` : `Primary Sensor   is`);
     const logCurrentDoorState = () => {
@@ -484,13 +515,14 @@ class homekitGarageDoorAccessory {
             logSensorStartupinfo(doorSensor2,doorsensor2);}
 
         // get cuurent door state info
-        [doorState.target,doorState.obstruction,doorState.current] = this.getDoorStateInfo(doorSensor); 
+        [ doorState.target, doorState.obstruction, doorState.current ] = this.getDoorStateInfo(doorSensor); 
         logCurrentDoorState();
      
         if (doorState.target != _currentDoorState .CLOSED)
             this.collectDoorStats(doorState.current,doorState.obstruction);
 
-        this.activateDoorSensor(doorState.current); //set up door sensor(s) interrupt monitoring 
+        //set up door sensor(s) interrupt monitoring 
+        this.activateDoorSensor(doorState.current); 
     }else{
         // no door sensor switch only...so assume door is closed
         doorState.target = doorState.current = _currentDoorState .CLOSED;
@@ -558,7 +590,11 @@ class homekitGarageDoorAccessory {
     const _currentDoorState  = homeBridge.CurrentDoorState;
     logEvent(traceEvent, `[ current door state = ${doorStateText(doorState.current)} ] [ target door state = ${doorStateText(targetDoorState)} ] `+
     `[ homeKitRequest - ${doorState.homeKitRequest} ]`);
-                                                                  
+
+                                            //-------------authorized------//
+                                            //   stop   |     true         //
+                                            //    on    |     true         //
+                                            //    off   |     false        //
     const newRequestAction = () => {
                                 if(!doorSwitch.interruptDoorRequest.authorized || doorSwitch.interruptDoorRequest.suspend){ // not configured for multiple requests..so disregard new request
                                     logEvent(alertEvent,`Disregarding new request ${doorStateText(targetDoorState)} - currently processing ${doorStateText(doorState.current)} request`);
@@ -655,7 +691,7 @@ class homekitGarageDoorAccessory {
       break;
       case reverseop:
         doorState.timerId = pushDoorButton(operation,
-                                  ( doorSwitch.interruptDoorRequest.newRequest ? 
+                                  ( doorSwitch.interruptDoorRequest.newRequest ?  // true when interruptDoorRequest is configured ON
                                     this.activateDoorMotor.bind(this,startop) :  // execute the new open/close request                                
                                     this.processDoorTimer.bind(this) ),     // stop the current open/close request
                                   doorSwitch.pressTimeInMs,
@@ -822,7 +858,7 @@ class homekitGarageDoorAccessory {
     const currentDoorState = (doorGPIOvalue == sensor.actuator.value) ? sensor.actuator.doorStateMatch: sensor.actuator.doorStateNoMatch;
     logEvent(traceEvent, `[ GPIO = ${sensor.GPIO} ] [ actuator value = ${doorGPIOvalue} ] `+
                          `[ door state = ${doorStateText(currentDoorState)} ] `+
-                         `[match sate = ${doorStateText(sensor.actuator.doorStateMatch)}] `+
+                         `[match state = ${doorStateText(sensor.actuator.doorStateMatch)}] `+
                          `[NO match state = ${doorStateText(sensor.actuator.doorStateNoMatch)}]`);
     return currentDoorState;
   }
@@ -960,7 +996,8 @@ class homekitGarageDoorAccessory {
                                  
     doorState.last = currentDoorState;  // save last door state for helping to assist in determiing interrupt arming and obstacle detection for next operation
     
-    logEvent(traceEvent,`[ GPIO = ${sensor.GPIO} ] [ door sensor = ${doorStateText(currentDoorOpenClosed)} ] `+
+    logEvent(traceEvent,`[ GPIO = ${sensor.GPIO} ] [ door sensor = ${doorStateText(currentDoorOpenClosed)} ] [ source = ${doorRequestSource()} ] `+
+                        `[operation interrupted = ${doorState.operationInterrupted}] [last door state = ${doorStateText(doorState.last)}]`+
                         `[ door obstruction = ${doorObstruction} ] [ door state = ${doorStateText(currentDoorState)} ]`);
     // garage door is open or closed
     return [currentDoorOpenClosed,doorObstruction,currentDoorState];
@@ -1037,5 +1074,14 @@ class homekitGarageDoorAccessory {
     logEvent(traceEvent,`[ GPIO = ${doorSensor2.GPIO} ] [ actuator = ${doorSensor2.actuator.value} ] [ sensor value = ${doorSensorValue} ]`);
     this.resetGarageDoorSensor(doorSensor2);
     this.processDoorMoveEvent(doorSensor2,doorSensorValue,err);            
+  }
+  
+  processLoopOnFault(){
+    log(`Accessory ${accessoryName} has detected a fatal error - ${faultState.errmsg}`);
+    this.processFault();
+  }
+
+  processFault(){
+    faultState.timerId = scheduleTimerEvent(faultState.timerId,faultState.LoopHandler,faultState.WaitTimeSec * 1000);
   }
 }
