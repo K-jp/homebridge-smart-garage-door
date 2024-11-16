@@ -1,0 +1,31 @@
+{
+  "name": "homebridge-smart-garage-door",
+  "version": "1.0.0",
+  "description": "Homebridge garagedoor accessory that using sensors connected to GPIO pins on a Raspberry Pi",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/K-jp/homebridge-smart-garage-door.git"
+  },
+  "keywords": [
+    "homebridge",
+    "rpi",
+    "homekit",
+    "pi",
+    "garagedoor",
+    "raspberry"
+  ],
+  "author": "Ken Piro",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/K-jp/homebridge-smart-garage-door/issues"
+  },
+  "homepage": "https://github.com/K-jp/homebridge-smart-garage-door#readme",
+  "dependencies": {
+    "epoll": "^4.0.2",
+    "onoff": "^6.0.3"
+  }
+}
