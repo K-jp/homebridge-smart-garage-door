@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 'use strict'
-const gpio = require('onoff').Gpio;
+const gpio = require('./node_modules/onoff').Gpio;
 const version = require('./package.json').version;
 // this assumes plugin files are in the correct directory which can be obtained from __dirname 
 const localFolderName = () => {const path = require('path'); return path.basename(__dirname);};
