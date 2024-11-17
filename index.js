@@ -273,7 +273,7 @@ class homekitGarageDoorAccessory {
                                             return (existsSync( GPIOfile ))}
 
     const validateGPIOpin = (GPIO,objectName) => {
-                                            const validGPIOpins = [5,6,13,16,17,22,23,24,25,26,27];
+                                            const validGPIOpins = [5,6,12,13,16,17,22,23,24,25,26,27];
                                             const GPIOmsgHdr = `[ GPIO ${GPIO} ] `;
 
                                             if (!Number.isInteger(GPIO)) {
