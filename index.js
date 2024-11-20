@@ -139,10 +139,9 @@ const getCaller = (stack)              => {// get calling method / function name
                                            const reDot = /[.]/;
                                            return (stack.search(reDot) == -1 ? stack : stack.split(".")[1]);}
 
-const stopAccessory = (exitCode, msg)  => {//accessroy has encounterd fatal error - stop acccepting requsts and enter error reporting loop                                     
-                                            faultState.errmsg = `${getCaller(new Error().stack.split("\n")[2].trim().split(" ")[1])} - ${(msg != null ? exitCode.text + msg : exitCode.text)}`;
-                                            faultState.timerId = scheduleTimerEvent(faultState.timerId,faultState.LoopHandler,faultState.WaitTimeSec * 1000);}
-
+const stopAccessory = (exitCode, msg)  => {// log and terminate execution                                        
+                                              logEvent(terminateEvent,`${getCaller(new Error().stack.split("\n")[2].trim().split(" ")[1])} - ${(msg != null ? exitCode.text + msg : exitCode.text)}`);  
+                                              throw process.exit(1);}
 
 const logEvent = (event, msg)          => { // logging function for all events
                                             switch (event) {
@@ -229,16 +228,10 @@ class homekitGarageDoorAccessory {
                                             --len}}
                                               
     const validateConfigValue = (configvalue,key,minValue,maxValue) => {
-                                            if (!Number.isInteger(configvalue) || !inRange(configvalue,minValue,(maxValue+1))) {
+                                            if (!Number.isInteger(configvalue) || !inRange(configvalue,minValue,(maxValue + 1))) {
                                                 // log invalid config.json key word number
                                                 const errMsg = `Invalid Configuration Option for ${key} : [ ${configvalue} ] is invalid - valid number range is ${minValue} to ${maxValue}`;
-                                                stopAccessory(fatalError.Invalid_Config_Info, errMsg)}}
-
-    const checkGPIOconfig = ( expectedGPIOcount ) => {
-                                            const configuredGPIOs = GPIO_Pins_Configured.length-1; //subtract relay GPIO to get number of sensors
-                                            if ( expectedGPIOcount != null && expectedGPIOcount != configuredGPIOs ){
-                                                  const errMsg = `expecting sensors [ ${expectedGPIOcount} ] does not match configured sensors [ ${configuredGPIOs} ]`;
-                                                  logEvent(warnEvent,errMsg);}}                                            
+                                                stopAccessory(fatalError.Invalid_Config_Info, errMsg)}}                                    
 
     const checkForDuplicateGPIOpins = () => { // prevent duplicate GPIO pin configuration     
                                             let search_len = GPIO_Pins_Configured.length - 1;
@@ -381,11 +374,7 @@ class homekitGarageDoorAccessory {
     logEvent(startupEvent,`Plugin Module ${plugInModule} Version ${version} - Optional Logging Events `+
                           `[ Trace=${loggingIs(traceLog.enabled)} Info=${loggingIs(infoLog.enabled)} Stats=${loggingIs(statsLog.enabled)} ]`);
                           
-    logEvent(traceEvent,`config keys ${Object.keys(config)}`);  
-
-    //initialize FaultState info
-    faultState.Handler = this.processFault.bind(this);
-    faultState.LoopHandler = this.processLoopOnFault.bind(this);
+    logEvent(traceEvent,`config entries ${Object.entries(config)}`);  
 
     // ensure 1:1 mapping of accessory to bridge
     if (doorSwitch.GPIO != null){
@@ -394,28 +383,11 @@ class homekitGarageDoorAccessory {
 
     // defensive programming check
     if (config.accessory != accessoryName){ 
-        const errMsg = `config acessory name [ ${config.accessory} ] does not match expected name [ ${accessoryName} ]`;
-        stopAccessory(fatalError.Internal_Error,errMsg);
-    }
+      const errMsg = `config acessory name [ ${config.accessory} ] does not match expected name [ ${accessoryName} ]`;
+      stopAccessory(fatalError.Internal_Error,errMsg);}
 
-    // validate number of sensors configured
+    // validate config sensor
     validateConfigValue(config.sensors,objKeySymbol(config).sensors,0,2);
-
-    // count number of sensor objects configured
-    if (hasObject(config, objNameToText({config}), doorsensor, config.doorSensor))
-       doorState.sensors = doorState.sensors + 1;
-    if (hasObject(config, objNameToText({config}), doorsensor2, config.doorSensor2))
-      doorState.sensors = doorState.sensors + 1;
-
-    // compare number of sensor objects to configured sensors
-    if (doorState.sensors !== config.sensors){
-       const errMsg = `configuration mismatch - was expecting ${config.sensors} sensor(s) - configuration contains ${doorState.sensors} sensor(s)`;
-       if (doorState.sensors < config.sensors){
-          stopAccessory(fatalError.Internal_Error,errMsg)
-       } else {
-          logEvent(warnEvent,errMsg);
-       }
-    }
 
     // check for presense of doorSwitch config object 
     if (!hasObject(config, objNameToText({config}), doorswitch, config.doorSwitch))
@@ -433,47 +405,50 @@ class homekitGarageDoorAccessory {
     validateConfigObject(config.doorSwitch, doorswitch, validDoorSwitchParams);
     configureDoorSwitch(doorswitch, config.doorSwitch, doorSwitch);
 
-    //configure door sensors
-    if (doorState.sensors) {
-      if (hasObject(config, objNameToText({config}), doorsensor, config.doorSensor)){
-          // get primary door sensor config info
-          const doorSensorKeySymbol = objKeySymbol(doorSensor);
-          const validDoorSensorParams = [doorSensorKeySymbol.GPIO, doorSensorKeySymbol.actuator, doorSensorKeySymbol.position];
-          validateConfigObject(config.doorSensor, doorsensor, validDoorSensorParams);
-          configureDoorSensor(doorsensor, config.doorSensor, doorSensor, config.doorSensor.position);  
-          //configure secondary door sensor                                  
-          if (doorState.sensors == 2){
-            if (hasObject(config, objNameToText({config}), doorsensor2, config.doorSensor2)){
-              // when 2 door sensors are configured...the primary door sensor position 
-              // must be 'closed' which is the default when position is not specified
-              // this should not occur when using the config.json schema
-              if (doorSensor.position == openDoor)
-                  stopAccessory(fatalError.Sensor_Position_Requirement);
-              // use primary door sensor config info as a superset for secondary sensor config validation
-              const filterdoorSensor2 = {keys:[...validDoorSensorParams],itemsToRemove:[]};
-              // remove 'position' and 'doorSensor2' text strings from list of valid config text for secondary door sensor object
-              filterdoorSensor2.itemsToRemove.push(doorSensorKeySymbol.position);
-              const removeItem = (item) => {return !filterdoorSensor2.itemsToRemove.includes(item)}
-              // create list of valid config info for second door sensor
-              const validdoorSensor2Params = filterdoorSensor2.keys.filter(removeItem);
-              validateConfigObject(config.doorSensor2, doorsensor2, validdoorSensor2Params);
-              configureDoorSensor(doorsensor2, config.doorSensor2, doorSensor2, openDoor); //secondary door sensot position is always 'open'
-            } else {
-              const errMsg = `config sensor count [ ${config.sensors} ] but missting config object [ ${doorsensor2}]`;
-              stopAccessory(fatalError.Internal_Error,errMsg);
-            } 
-          }
-      } else {
-        const errMsg = `config sensor count [ ${config.sensors} ] but missting config object [ ${doorsensor}]`;
-        stopAccessory(fatalError.Internal_Error,errMsg);
-      } 
-      // configure interrupt handler methods
-      setInterruptHandler();    
-    }
+    //check for primary door sensors
+    if (hasObject(config, objNameToText({config}), doorsensor, config.doorSensor)){
+        doorState.sensors = doorState.sensors + 1;
+        // get primary door sensor config info
+        const doorSensorKeySymbol = objKeySymbol(doorSensor);
+        const validDoorSensorParams = [doorSensorKeySymbol.GPIO, doorSensorKeySymbol.actuator, doorSensorKeySymbol.position];
+        validateConfigObject(config.doorSensor, doorsensor, validDoorSensorParams);
+        configureDoorSensor(doorsensor, config.doorSensor, doorSensor, config.doorSensor.position);
+    };  
+    //check for secondary door sensor                                  
+    if (hasObject(config, objNameToText({config}), doorsensor2, config.doorSensor2)){
+        doorState.sensors = doorState.sensors + 1;
+        // when 2 door sensors are configured...the primary door sensor position 
+        // must be 'closed' which is the default when position is not specified
+        // this should not occur when using the config.json schema
+        if (doorSensor.position == openDoor)
+            stopAccessory(fatalError.Sensor_Position_Requirement);
+        // use primary door sensor config info as a superset for secondary sensor config validation
+        const filterdoorSensor2 = {keys:[...validDoorSensorParams],itemsToRemove:[]};
+        // remove 'position' and 'doorSensor2' text strings from list of valid config text for secondary door sensor object
+        filterdoorSensor2.itemsToRemove.push(doorSensorKeySymbol.position);
+        const removeItem = (item) => {return !filterdoorSensor2.itemsToRemove.includes(item)}
+        // create list of valid config info for second door sensor
+        const validdoorSensor2Params = filterdoorSensor2.keys.filter(removeItem);
+        validateConfigObject(config.doorSensor2, doorsensor2, validdoorSensor2Params);
+        configureDoorSensor(doorsensor2, config.doorSensor2, doorSensor2, openDoor); //secondary door sensot position is always 'open'
+    }; 
+    
     // check GPIO's are unique 
     checkForDuplicateGPIOpins();
-    // defensive programming check - GPIO count should match configured
-    checkGPIOconfig((doorState.sensors+1));
+
+    // check for door sensor config mismatch
+    if (doorState.sensors != config.sensors){
+       // validate number of sensors configured
+       const errMsg = `configuration mismatch - was expecting ${config.sensors} sensor(s) - configuration contains ${doorState.sensors} sensor(s)`;
+       if (doorState.sensors < config.sensors){
+          stopAccessory(fatalError.Internal_Error,errMsg);
+       } else {
+          logEvent(warnEvent,errMsg);
+       }
+    }      
+    // configure interrupt handler methods
+    if (doorState.sensors) 
+        setInterruptHandler();    
 
     // door switch configured...open GPIO for door switch, log door switch configuration info
     doorSwitch.onOff = activateGPIO(doorSwitch.GPIO, 
@@ -1074,14 +1049,5 @@ class homekitGarageDoorAccessory {
     logEvent(traceEvent,`[ GPIO = ${doorSensor2.GPIO} ] [ actuator = ${doorSensor2.actuator.value} ] [ sensor value = ${doorSensorValue} ]`);
     this.resetGarageDoorSensor(doorSensor2);
     this.processDoorMoveEvent(doorSensor2,doorSensorValue,err);            
-  }
-  
-  processLoopOnFault(){
-    log(`Accessory ${accessoryName} has detected a fatal error - ${faultState.errmsg}`);
-    this.processFault();
-  }
-
-  processFault(){
-    faultState.timerId = scheduleTimerEvent(faultState.timerId,faultState.LoopHandler,faultState.WaitTimeSec * 1000);
   }
 }

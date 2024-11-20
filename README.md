@@ -15,19 +15,21 @@ When the accessory is configured with one or two actuators, it will use interrup
 When the accessory is NOT configured with one or two actuators, it will only be able to toggle a relay switch to control door movement. It will NOT be able to determine the actual garage door state (i.e. open or closed). Furthermore, the accessory will assume the door is closed when the accessory is initially added to Apple HomeKit and the accessory will not be able to report when the garage door has been open or closed by a traditional wireless door controller or wired door switch.
 
 Config.schema.json is the recommended method for configuing this accessory.
+
+Here is an example of a garage door confguration with a switch and 1 actuator. An actuator is defined as the json objects, doorSensor for the 1st actuator and doorSensor2 if a 2nd actuator is configured.
 ```json
 {
-  "name": "Garage Door",
-  "ignoreGPIOinUse": "off",
-  "sensors": 2,
-  "doorSwitch": {
-    "GPIO": 6
-  },
-  "doorSensor": {
-    "GPIO": 23
-  },
-  "doorSensor2": {
-    "GPIO": 17
-  }
+    "name": "Garage Door",
+    "ignoreGPIOinUse": "on",
+    "sensors": 1,
+    "doorSwitch": {
+        "GPIO": 5,
+        "relaySwitch": "NO"
+    },
+    "doorSensor": {
+        "GPIO": 24,
+        "actuator": "NO"
+    },
+    "accessory": "smartgaragedoor"
 }
 ```
