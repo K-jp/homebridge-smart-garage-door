@@ -55,37 +55,26 @@ const doorState   = {timerId:null, ignoreGPIOinUse:false, sensors:0, homeKitRequ
 const doorLog     = {logger:null, accessory:'', name:''};
 const doorStats   = {open:{requestSource:'', time:null}, close:{requestSource:'', time:null}, obstruction:{startTime:null, endTime:null}};
 const homeBridge  = {Service:null, Characteristic:null, CurrentDoorState:null, TargetDoorState:null, ObstructionDetected:null};
-const faultState  = {Handler:null, LoopHandler:null, WaitTimeSec:5,timerId:null, errmsg:null };
 
 const fatalError  = { Missing_Required_Config:{
-                            error:1,
                             text:`Missing Required Configuration Info - `},
                       Invalid_Config_Info:{
-                            error:2,
                             text:`Invalid Configuration - `},
                       Invalid_GPIO:{
-                            error:3,
                             text:`Invalid GPIO Pin - `},      
                       GPIO_conflict:{
-                            error:4,
                             text:`Duplicate GPIO Pin detected for both switch and sensor(s) `},
                       Sensor_Position_Requirement:{
-                            error:5,
                             text:`Primary door sensor position must be [ ${closedDoor} ] when secondary door sensor is configured`}, 
                       Door_Switch_Write_Error:{
-                            error:6,
                             text: `Door Switch Write Error (OnOff) - `},
                       Door_Sensor_Read_Error:{
-                            error:7,
                             text: `Door Sensor Read Error (OnOff) - `},
                       Door_Switch_OnOff_Error:{
-                            error:8,
                             text: `Door Switch OnOff Error (setup) - `},      
                       Door_Sensor_OnOff_Error:{
-                            error:9,
                             text: `Door Sensor OnOff Error (setup) - `},
                       Internal_Error:{
-                            error:10,
                             text:`Internal Error - `}};
 // standard log events - debug flags control trace info and stats logging - alert, warning, startup and terminating
 const logEventLevel  = [ "trace  ", 
@@ -371,7 +360,7 @@ class homekitGarageDoorAccessory {
                                             }}                                       
     // plugin start
     const loggingIs = (type) => {return (!type || type == undefined) ? false : true};                                                                           
-    logEvent(startupEvent,`Plugin Module ${plugInModule} Version ${version} - Optional Logging Events `+
+    logEvent(startupEvent,`Plugin Module ${plugInModule} Version ${version} ${(config.sensors ? `configured with actuator(s)`:``)} - Optional Logging Events `+
                           `[ Trace=${loggingIs(traceLog.enabled)} Info=${loggingIs(infoLog.enabled)} Stats=${loggingIs(statsLog.enabled)} ]`);
                           
     logEvent(traceEvent,`config entries ${Object.entries(config)}`);  
@@ -591,8 +580,6 @@ class homekitGarageDoorAccessory {
 
                                     logEvent(alertEvent,`Stopping current ${doorStateText(doorState.current)} ${ doorSwitch.interruptDoorRequest.newRequest ? `- starting new ${doorStateText(targetDoorState)} request` : ``}`);
                                   return true; }  } 
-  
-
 
     if (doorState.homeKitRequest) {                          
         doorState.operationInterrupted = newRequestAction();// check if the new request should be rejected or processed
@@ -996,12 +983,12 @@ class homekitGarageDoorAccessory {
     const monitorDoorMove = (sensor,desiredTargetDoorState,currentDoorOpeningClosing) => {
                             logEvent(traceEvent,`[ desired target state = ${doorStateText(desiredTargetDoorState)} ] `+
                                                 `[ door state = ${doorStateText(currentDoorOpeningClosing)} ]`);
-                            this.updateTargetDoorState(desiredTargetDoorState);//need to update target door state to simulate a homekit request
+                            this.updateTargetDoorState(desiredTargetDoorState);// update target door state to simulate a homekit request
                             this.updateCurrentDoorState(currentDoorOpeningClosing);
                             const completeDoorOpenClosed =this.processDoorInterrupt.bind(this,sensor);
                             doorState.timerId = scheduleTimerEvent(doorState.timerId,completeDoorOpenClosed,doorState.moveTimeInMs);}
       
-    if (requestSource == garageOpenner && garageDoorHasSensor(doorSensor2)) {
+    if (requestSource == garageOpenner && garageDoorHasSensor(doorSensor2)) {// has 2 door actuators..so able to monitor door transiton state
         logEvent(traceEvent,`[ GPIO = ${sensor.GPIO} ][ sensor = ${sensorValue} ] [ err = ${err} ]`);
         // door opening or closing via request from native door wireless or wired button
         switch (sensor.position){
@@ -1027,7 +1014,7 @@ class homekitGarageDoorAccessory {
           break;  
           }
     }       
-    this.processDoorInterrupt(sensor,sensorValue,err); //door is either OPEN, CLOSED or STOPPED
+    this.processDoorInterrupt(sensor,sensorValue,err); // door is either OPEN, CLOSED or STOPPED
   }
 
   resetGarageDoorSensor(sensor){
