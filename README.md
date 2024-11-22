@@ -33,3 +33,23 @@ Here is an example of a garage door confguration with a switch and 1 actuator. A
     "accessory": "smartgaragedoor"
 }
 ```
+Here is an example of a garage door confguration with 2 actuators.
+```json
+{
+    "name": "Garage Door",
+    "ignoreGPIOinUse": "on",
+    "sensors": 2,
+    "doorSwitch": {
+        "GPIO": 16
+            },
+    "doorSensor": {
+        "GPIO": 22,
+        "actuator": "NO"
+        },
+    "doorSensor2": {
+        "GPIO": 17,
+        "actuator": "NO"
+    },
+    "accessory": "smartgaragedoor"
+}
+```
