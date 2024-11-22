@@ -706,6 +706,8 @@ class homekitGarageDoorAccessory {
     this.updateTargetDoorState(currentDoorOpenClosed); // this method will also update dooState.target
     this.updateCurrentDoorState(currentDoorOpenClosed,doorObstruction); // this method will also update dooState.current and doorState.obstruction
     
+    doorState.last = currentDoorState;  // save last door state for helping to assist in determiing interrupt arming and obstacle detection for next operation
+    
     if (garageDoorHasSensor(doorSensor)){
         this.collectDoorStats(doorState.target,doorState.obstruction); // collect door stats information and reset switch info
         this.activateDoorSensor(doorState.current); // rearm door sensor interrupts
@@ -951,11 +953,9 @@ class homekitGarageDoorAccessory {
     
     const [currentDoorState,currentDoorOpenClosed] = garageDoorState();
 
-    const doorObstruction = (currentDoorState == _currentDoorState.STOPPED);
-                                 
-    doorState.last = currentDoorState;  // save last door state for helping to assist in determiing interrupt arming and obstacle detection for next operation
-    
-    logEvent(traceEvent,`[ GPIO = ${sensor.GPIO} ] [ door sensor = ${doorStateText(currentDoorOpenClosed)} ] [last door state = ${doorStateText(doorState.last)}]`+
+    const doorObstruction = (currentDoorState == _currentDoorState.STOPPED);                                
+
+    logEvent(traceEvent,`[ GPIO = ${sensor.GPIO} ] [ door sensor = ${doorStateText(currentDoorOpenClosed)} ] `+
                         `[ door obstruction = ${doorObstruction} ] [ door state = ${doorStateText(currentDoorState)} ]`);
     // garage door is open or closed
     return [currentDoorOpenClosed,doorObstruction,currentDoorState];
