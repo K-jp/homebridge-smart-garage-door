@@ -360,7 +360,7 @@ class homekitGarageDoorAccessory {
                                             }}                                       
     // plugin start
     const loggingIs = (type) => {return (!type || type == undefined) ? false : true};                                                                           
-    logEvent(startupEvent,`Plugin Module ${plugInModule} Version ${version} ${(config.sensors ? `configured with actuator(s)`:``)} - Optional Logging Events `+
+    logEvent(startupEvent,`Plugin Module ${plugInModule} Version ${version} ${(config.sensors ? `- configured with actuator(s)`:``)}- Optional Logging Events `+
                           `[ Trace=${loggingIs(traceLog.enabled)} Info=${loggingIs(infoLog.enabled)} Stats=${loggingIs(statsLog.enabled)} ]`);
                           
     logEvent(traceEvent,`config entries ${Object.entries(config)}`);  
@@ -401,27 +401,26 @@ class homekitGarageDoorAccessory {
         const doorSensorKeySymbol = objKeySymbol(doorSensor);
         const validDoorSensorParams = [doorSensorKeySymbol.GPIO, doorSensorKeySymbol.actuator, doorSensorKeySymbol.position];
         validateConfigObject(config.doorSensor, doorsensor, validDoorSensorParams);
-        configureDoorSensor(doorsensor, config.doorSensor, doorSensor, config.doorSensor.position);
-    };  
-    //check for secondary door sensor                                  
-    if (hasObject(config, objNameToText({config}), doorsensor2, config.doorSensor2)){
-        doorState.sensors = doorState.sensors + 1;
-        // when 2 door sensors are configured...the primary door sensor position 
-        // must be 'closed' which is the default when position is not specified
-        // this should not occur when using the config.json schema
-        if (doorSensor.position == openDoor)
-            stopAccessory(fatalError.Sensor_Position_Requirement);
-        // use primary door sensor config info as a superset for secondary sensor config validation
-        const filterdoorSensor2 = {keys:[...validDoorSensorParams],itemsToRemove:[]};
-        // remove 'position' and 'doorSensor2' text strings from list of valid config text for secondary door sensor object
-        filterdoorSensor2.itemsToRemove.push(doorSensorKeySymbol.position);
-        const removeItem = (item) => {return !filterdoorSensor2.itemsToRemove.includes(item)}
-        // create list of valid config info for second door sensor
-        const validdoorSensor2Params = filterdoorSensor2.keys.filter(removeItem);
-        validateConfigObject(config.doorSensor2, doorsensor2, validdoorSensor2Params);
-        configureDoorSensor(doorsensor2, config.doorSensor2, doorSensor2, openDoor); //secondary door sensot position is always 'open'
-    }; 
-    
+        configureDoorSensor(doorsensor, config.doorSensor, doorSensor, config.doorSensor.position); 
+        //check for secondary door sensor                                  
+        if (hasObject(config, objNameToText({config}), doorsensor2, config.doorSensor2)){
+            doorState.sensors = doorState.sensors + 1;
+           // when 2 door sensors are configured...the primary door sensor position 
+           // must be 'closed' which is the default when position is not specified
+           // this should not occur when using the config.json schema
+           if (doorSensor.position == openDoor)
+               stopAccessory(fatalError.Sensor_Position_Requirement);
+           // use primary door sensor config info as a superset for secondary sensor config validation
+           const filterdoorSensor2 = {keys:[...validDoorSensorParams],itemsToRemove:[]};
+           // remove 'position' and 'doorSensor2' text strings from list of valid config text for secondary door sensor object
+           filterdoorSensor2.itemsToRemove.push(doorSensorKeySymbol.position);
+           const removeItem = (item) => {return !filterdoorSensor2.itemsToRemove.includes(item)}
+           // create list of valid config info for second door sensor
+           const validdoorSensor2Params = filterdoorSensor2.keys.filter(removeItem);
+           validateConfigObject(config.doorSensor2, doorsensor2, validdoorSensor2Params);
+           configureDoorSensor(doorsensor2, config.doorSensor2, doorSensor2, openDoor); //secondary door sensot position is always 'open'
+         }; 
+      };
     // check GPIO's are unique 
     checkForDuplicateGPIOpins();
 
@@ -951,15 +950,12 @@ class homekitGarageDoorAccessory {
                                 }else return [_currentDoorState.STOPPED,_currentDoorState.OPEN];}
     
     const [currentDoorState,currentDoorOpenClosed] = garageDoorState();
-    
-    const doorObstruction = (!doorState.operationInterrupted && 
-                                ((currentDoorState == _currentDoorState.STOPPED )|| 
-                                 (doorRequestSource() == homekit && currentDoorState != doorState.target && doorState.last != _currentDoorState.STOPPED)));
+
+    const doorObstruction = (currentDoorState == _currentDoorState.STOPPED);
                                  
     doorState.last = currentDoorState;  // save last door state for helping to assist in determiing interrupt arming and obstacle detection for next operation
     
-    logEvent(traceEvent,`[ GPIO = ${sensor.GPIO} ] [ door sensor = ${doorStateText(currentDoorOpenClosed)} ] [ source = ${doorRequestSource()} ] `+
-                        `[operation interrupted = ${doorState.operationInterrupted}] [last door state = ${doorStateText(doorState.last)}]`+
+    logEvent(traceEvent,`[ GPIO = ${sensor.GPIO} ] [ door sensor = ${doorStateText(currentDoorOpenClosed)} ] [last door state = ${doorStateText(doorState.last)}]`+
                         `[ door obstruction = ${doorObstruction} ] [ door state = ${doorStateText(currentDoorState)} ]`);
     // garage door is open or closed
     return [currentDoorOpenClosed,doorObstruction,currentDoorState];
