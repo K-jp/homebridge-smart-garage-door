@@ -51,7 +51,7 @@ const sensorObj   =() => {return {GPIO:null, onOff:null, position:null,
 const doorSensor  = sensorObj();
 const doorSensor2 = sensorObj();
 
-const doorState   = {timerId:null, ignoreGPIOinUse:false, sensors:0, homeKitRequest:false, operationInterrupted:false, waitTimeInMsBetweenActiveRequests:null, moveTimeInMs:null, last:null, current:null, target:null, obstruction:false};
+const doorState   = {timerId:null, ignoreGPIOinUse:true, sensors:0, homeKitRequest:false, operationInterrupted:false, waitTimeInMsBetweenActiveRequests:null, moveTimeInMs:null, last:null, current:null, target:null, obstruction:false};
 const doorLog     = {logger:null, accessory:'', name:''};
 const doorStats   = {open:{requestSource:'', time:null}, close:{requestSource:'', time:null}, obstruction:{startTime:null, endTime:null}};
 const homeBridge  = {Service:null, Characteristic:null, CurrentDoorState:null, TargetDoorState:null, ObstructionDetected:null};
@@ -240,7 +240,7 @@ class homekitGarageDoorAccessory {
                                             const doorStateKeySymbol = objKeySymbol(doorState);
                                             if (Object.hasOwn(configObject,doorStateKeySymbol.ignoreGPIOinUse)){
                                                // user has specified GPIO policy to eiter force use of GPIO pins or only use if available
-                                               const ignoreGPIOinUse = setValue(varToLowerCase(configObject.ignoreGPIOinUse),off);
+                                               const ignoreGPIOinUse = setValue(varToLowerCase(configObject.ignoreGPIOinUse),on);
                                                validateConfigKeyWord(ignoreGPIOinUse,doorStateKeySymbol.ignoreGPIOinUse,ignoreGPIOinUseSettings);
                                                doorState.ignoreGPIOinUse = GPIOpolicylValue [ignoreGPIOinUse]; //set user policy
                                                }
