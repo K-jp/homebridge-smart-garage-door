@@ -62,7 +62,7 @@ Here is an example of a garage door confguration with 2 actuators.
 
     OFF – any GPIO pin specified in the config which is currently in use it will log an error and terminate.
 
-doorSwitch”:{
+"doorSwitch”:{
 
     “GPIO”:<pin>,  (required) – key values are one of the following GPIO pins: 5,6,12,13,16,17,22,23,24,25,26,27
 
