@@ -33,8 +33,7 @@
         "default": "off",
         "oneOf": [
           { "title":"off - Accessory will STOP if GPIO is locked", "enum":["off"] },
-          { "title":"on  - Accessory will unlock GPIO and continue","enum":["on"] }
-        ],
+          { "title":"on  - Accessory will unlock GPIO and continue","enum":["on"] }],
         "required": false
       },
       "sensors":{
@@ -46,8 +45,7 @@
         "oneOf": [
           { "title":"No sensor installed",  "enum":[0] },
           { "title":"(1) sensor installed", "enum":[1] },
-          { "title":"(2) sensors installed","enum":[2] }
-        ]
+          { "title":"(2) sensors installed","enum":[2] }]
       },
       "doorSwitch":{
         "type": "object",
@@ -91,8 +89,7 @@
             "oneOf": [
               { "title":"Stop door movement",   "enum":["stop"]},
               { "title":"Do NOT stop movement", "enum":["off"] },
-              { "title":"Reverse door movement","enum":["on"] }
-            ],
+              { "title":"Reverse door movement","enum":["on"] }],
             "required": false
           }
       }
