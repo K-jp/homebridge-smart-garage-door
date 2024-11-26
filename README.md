@@ -93,20 +93,14 @@ Here is an example of a garage door confguration with 2 actuators.
 
     “interruptDoorRequest”: <”key value”>, (optional) - key values in quotes are STOP, ON, OFF
 
-        stop – upon receiving a new door move request while currently executing a door move request, the door movement will stop.
-
         off - upon receiving a new door move request while currently executing a door move request, the new request will be ignored.
 
         on - upon receiving a new door move request while currently executing a door move request, the current request door movement will reverse.
 
-        Default is stop.
+        stop – upon receiving a new door move request while currently executing a door move request, the door movement will stop.
+
+        NOTE: Setting this configuration parameter to on or stop for a door without sensors is not recommended and a warning will be logged at statup
+
+        Default is off.
     
-    “waitTimeAfterNewDoorRequest”:<seconds>,  (optional) – key value range 2 – 5
-
-        Number of seconds to wait before another new door move request to interrupt the current request can be executed.
-
-        This setting is only used after a door move request has been interrupted.
-
-        In the event that a user sends multiple door move requests, this setting allows the door motor to respond in an orderly fashion to either stop the current door movement or reverse the current door movement.
-
-        Default is 2.
+    

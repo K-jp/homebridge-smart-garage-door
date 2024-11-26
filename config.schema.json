@@ -85,23 +85,14 @@
           },
           "interruptActiveRequest":{
             "title":"Interrupt Active Request",
-            "description": "Allow current open or close door operation to be stopped, reversed or do nothing when a new request is received.  [Default: stop]",
+            "description": "Allow current open or close door operation to be stopped, reversed or do nothing when a new request is received.  [Default: off]",
             "type": "string",
-            "placeholder": "stop",
+            "placeholder": "off",
             "oneOf": [
               { "title":"Stop door movement",   "enum":["stop"]},
               { "title":"Do NOT stop movement", "enum":["off"] },
               { "title":"Reverse door movement","enum":["on"] }
             ],
-            "required": false
-          },
-          "waitTimeAfterNewDoorRequest":{
-            "title":"Interrupt door request wait time",
-            "description": "The number of seconds to wait in between requests to reverse the current door move operation. [Default: 2 seconds]",
-            "type": "integer",
-            "placeholder": 2,
-            "minumum": 2,
-            "maximum": 5,
             "required": false
           }
       }
