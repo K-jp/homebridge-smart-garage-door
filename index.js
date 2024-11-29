@@ -560,9 +560,7 @@ class homekitGarageDoorAccessory {
   async setTargetDoorState(targetDoorState){
     const _currentDoorState  = homeBridge.CurrentDoorState;
     logEvent(traceEvent, `[ current door state = ${doorStateText(doorState.current)} ] [ target door state = ${doorStateText(targetDoorState)} ] `+
-    `[ homeKitRequest - ${doorState.homeKitRequest} ]`);
-
-    const doorTransitionState = ( target ) => { return (target == _currentDoorState.OPEN) ? _currentDoorState.OPENING : _currentDoorState.CLOSING;}
+                         `[ homeKitRequest - ${doorState.homeKitRequest} ]`);
 
                                             //-------------authorized------//
                                             //   stop   |     true         //
@@ -593,7 +591,7 @@ class homekitGarageDoorAccessory {
                   
     doorState.homeKitRequest = true;    
     doorState.target         = targetDoorState; // set expected door state (open or closed)
-    doorState.current        = doorTransitionState( targetDoorState );
+    doorState.current        = (targetDoorState == _currentDoorState.OPEN) ? _currentDoorState.OPENING : _currentDoorState.CLOSING;
     this.activateDoorMotor((interruptDoorMove ? stopop : startop )); 
     this.updateCurrentDoorState(doorState.current);
   }
@@ -660,13 +658,13 @@ class homekitGarageDoorAccessory {
         this.cancelAllEvents();// stop listening for door sensor interrupts since an interrupt will occur when the button is pushed
         mutexon();
         if (doorSwitch.interruptDoorRequest.newRequest){
-            doorState.timerId = pushDoorButton(operation,  //press the button to stop door movement and then reverse door movement
+            doorState.timerId = pushDoorButton(operation,  //press button to stop door movement and press again to reverse door movement
                                       this.activateDoorMotor.bind(this,reverseop),                              
                                       doorSwitch.pressTimeInMs.value,
                                       doorState.timerId);}
         else{
           doorState.timerId = pushDoorButton(operation,
-                                    this.activateDoorMotor.bind(this,executeop), // push the button to begin to stop door movement
+                                    this.activateDoorMotor.bind(this,executeop), // push button to begin to stop door movement
                                     doorSwitch.pressTimeInMs.value,
                                     doorState.timerId);
           doorState.stopDoorMovement= true;}
