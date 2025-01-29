@@ -81,8 +81,8 @@
             "placeholder": "NO",
             "required": false
           },
-          "interruptActiveRequest":{
-            "title":"Interrupt Active Request",
+          "interruptDoorRequest":{
+            "title":"Interrupt Door Request",
             "description": "Allow current open or close door operation to be stopped, reversed or do nothing when a new request is received.  [Default: off]",
             "type": "string",
             "placeholder": "off",
