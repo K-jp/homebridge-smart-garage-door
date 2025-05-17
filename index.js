@@ -24,8 +24,8 @@ const accessoryInfo  = {developer:`Homebridge Open Source Project`, product:`Hom
 const doorRequestSources = [ "apple homekit", "garagedoor openner" ];
 const [homekit, garageOpenner] = doorRequestSources;
 // external door events
-const doorStatsEvents  = [ "openClose", "obstructed", "interruptedrequests" ];
-const [openClose, obstructed, interruptedrequests] = doorStatsEvents;
+const doorStatsEvents  = [ "openClose", "obstructed" ];
+const [openClose, obstructed] = doorStatsEvents;
 // internal switch operations
 const doorSwitchOperations  = [ "startop", "executeop" , "stopop", "reverseop"];
 const [startop, executeop, stopop, reverseop] = doorSwitchOperations;
@@ -53,6 +53,13 @@ const doorSwitch  = {GPIO:null, onOff:null, pressTimeInMs:{value:null,minValue:1
                                             newOpInProgress:false,
                                             counter:0},
                       relaySwitch:{ configValue:null, writeValue:null}};
+                       
+const mutexon = () =>   {//need to prevent partial button push caused by a new request to stop or reverse current door move
+                        doorSwitch.interruptDoorRequest.newOpInProgress = true;}
+
+const mutexoff = () =>  {//allow new requests
+                      doorSwitch.interruptDoorRequest.newOpInProgress = false;}
+                        
 //object factory                                                                                                                        
 const signalObj = () => {return {validText:[ "NO", "NC" ],defaultValue:"NO",signalValue:{NO:1,NC:0}}}
 // garage door signal objects 
@@ -588,7 +595,7 @@ class homekitGarageDoorAccessory {
           logEvent(alertEvent,`Stopping current ${doorStateText(doorState.current)} ${ doorSwitch.interruptDoorRequest.newRequest ? `- starting new ${doorStateText(targetDoorState)} request` : ``}`);                    
       }   
     }
-                  
+    mutexon(); // Prevent another request from being accepted until the current request starts completes pressing the switch              
     doorState.homeKitRequest = true;    
     doorState.target         = targetDoorState; // set expected door state (open or closed)
     doorState.current        = (targetDoorState == _currentDoorState.OPEN) ? _currentDoorState.OPENING : _currentDoorState.CLOSING;
@@ -626,13 +633,7 @@ class homekitGarageDoorAccessory {
                                 };
                                 doorSwitch.relaySwitch.writeValue = doorSwitch.relaySwitch.writeValue ^ 1; //cycle through on/off sequence
                                 return scheduleTimerEvent( timerId, nextAction, timeOut );}
-  
-    const mutexon = () =>   {//need to prevent partial button push caused by a new request to stop or reverse current door move
-                            doorSwitch.interruptDoorRequest.newOpInProgress = true;}
-
-    const mutexoff = () =>  {//allow new requests
-                            doorSwitch.interruptDoorRequest.newOpInProgress = false;}
-                        
+ 
 
     switch (operation){
       case startop:
