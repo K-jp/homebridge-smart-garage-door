@@ -633,12 +633,13 @@ class homekitGarageDoorAccessory {
                                 };
                                 doorSwitch.relaySwitch.writeValue = doorSwitch.relaySwitch.writeValue ^ 1; //cycle through on/off sequence
                                 return scheduleTimerEvent( timerId, nextAction, timeOut );}
- 
+
+    const doorSwitchOp = () => { this.cancelAllEvents();// stop listening for door sensor interrupts since an interrupt will occur when the button is pushed
+                                 mutexon();}
 
     switch (operation){
       case startop:
-        this.cancelAllEvents();// stop listening for door sensor interrupts since an interrupt will occur when the button is pushed
-        mutexon();
+        doorSwitchOp();
         doorState.timerId = pushDoorButton(operation,  // press the button 
                                   this.activateDoorMotor.bind(this,executeop),
                                   doorSwitch.pressTimeInMs.value,
@@ -656,8 +657,7 @@ class homekitGarageDoorAccessory {
         mutexoff();
       break;
       case stopop: // this will stop the garagdoor motor
-        this.cancelAllEvents();// stop listening for door sensor interrupts since an interrupt will occur when the button is pushed
-        mutexon();
+        doorSwitchOp();
         if (doorSwitch.interruptDoorRequest.newRequest){
             doorState.timerId = pushDoorButton(operation,  //press button to stop door movement and press again to reverse door movement
                                       this.activateDoorMotor.bind(this,reverseop),                              
@@ -671,6 +671,7 @@ class homekitGarageDoorAccessory {
           doorState.stopDoorMovement= true;}
       break;
       case reverseop:
+        doorSwitchOp();
         doorState.timerId = pushDoorButton(operation,
                                     this.activateDoorMotor.bind(this,startop),   // release the button to stop door movement and reverse door movement                                
                                     doorSwitch.pressTimeInMs.value,
