@@ -62,17 +62,17 @@ const mutexoff = () =>  {//allow new requests
                         
 //object factory                                                                                                                        
 const signalObj = () => {return {validText:[ "NO", "NC" ],defaultValue:"NO",signalValue:{NO:1,NC:0}}}
-// garage door signal objects 
-doorSwitch.relaySwitch  = signalObj();
-doorSensor.actuator     = signalObj();
-doorSensor2.actuator    = signalObj();
-//object factory  
 const sensorObj   =() => {return {GPIO:null, onOff:null, position:null,
                                   interrupt:{ count:0,handler:null },
                                   actuator:{ value:null,doorStateMatch:null,doorStateNoMatch:null }}}
+// garage door signal objects 
+doorSwitch.relaySwitch  = signalObj();
+
 // garage door sensor objects                                                                                                                                                           
-const doorSensor  = sensorObj();
-const doorSensor2 = sensorObj();
+const doorSensor        = sensorObj();
+const doorSensor2       = sensorObj();
+doorSensor.actuator     = signalObj();
+doorSensor2.actuator    = signalObj();
 
 const doorState   = {timerId:null, ignoreGPIOinUse:{value:null,validText:["on","off"],defaultValue:"on",setValue:{on:true,off:false}}, 
                      validGPIOpins:[5,6,12,13,16,17,22,23,24,25,26,27],
