@@ -988,7 +988,7 @@ class homekitGarageDoorAccessory {
     const _currentDoorState   = homeBridge.CurrentDoorState;
     const requestSource       = doorRequestSource();
     
-    logEvent(traceEvent, `[ source = ${requestSource} ][ door state = ${doorStateText(doorIsOpenOrClosed)} ][ sensor door position = ${sensor.position}]`);
+    logEvent(traceEvent, `[ source = ${requestSource} ][ sensor door position = ${sensor.position}]`);
     
     if (requestSource == garageOpenner && garageDoorHasSensor(doorSensor2)) {
         // 2 door sensors..so able to monitor door transiton state
