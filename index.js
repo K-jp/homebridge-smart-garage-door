@@ -595,7 +595,7 @@ class homekitGarageDoorAccessory {
           logEvent(alertEvent,`Stopping current ${doorStateText(doorState.current)} ${ doorSwitch.interruptDoorRequest.newRequest ? `- starting new ${doorStateText(targetDoorState)} request` : ``}`);                    
       }   
     }
-    mutexon(); // Prevent another request from being accepted until the current request starts completes pressing the switch              
+         
     doorState.homeKitRequest = true;    
     doorState.target         = targetDoorState; // set expected door state (open or closed)
     doorState.current        = (targetDoorState == _currentDoorState.OPEN) ? _currentDoorState.OPENING : _currentDoorState.CLOSING;
