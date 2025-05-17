@@ -53,12 +53,7 @@ const doorSwitch  = {GPIO:null, onOff:null, pressTimeInMs:{value:null,minValue:1
                                             newOpInProgress:false,
                                             counter:0},
                       relaySwitch:{ configValue:null, writeValue:null}};
-                       
-const mutexon = () =>   {//need to prevent partial button push caused by a new request to stop or reverse current door move
-                        doorSwitch.interruptDoorRequest.newOpInProgress = true;}
 
-const mutexoff = () =>  {//allow new requests
-                      doorSwitch.interruptDoorRequest.newOpInProgress = false;}
                         
 //object factory                                                                                                                        
 const signalObj = () => {return {validText:[ "NO", "NC" ],defaultValue:"NO",signalValue:{NO:1,NC:0}}}
@@ -112,7 +107,7 @@ const logEventLevel  = [ "trace  ",
                          "startup", 
                          "terminating" ];
 const [traceEvent, infoEvent, statsEvent, alertEvent, warnEvent, startupEvent, terminateEvent] = logEventLevel;
-const { log } = require('console');
+//const log          = require('console');
 const debug           = require('debug');
 const traceLog        = debug(`${accessoryName}:trace`);
 const infoLog         = debug(`${accessoryName}:info`);
@@ -635,7 +630,7 @@ class homekitGarageDoorAccessory {
                                 return scheduleTimerEvent( timerId, nextAction, timeOut );}
 
     const doorSwitchOp = () => { this.cancelAllEvents();// stop listening for door sensor interrupts since an interrupt will occur when the button is pushed
-                                 mutexon();}
+                                 doorSwitch.interruptDoorRequest.newOpInProgress = true;} //prevent new requests
 
     switch (operation){
       case startop:
@@ -654,7 +649,7 @@ class homekitGarageDoorAccessory {
         if (garageDoorHasSensor(doorSensor))
             this.activateDoorSensor(doorState.current);//use both sensor and timer to determine when door move has completed 
 
-        mutexoff();
+        doorSwitch.interruptDoorRequest.newOpInProgress = false;//allow new requests
       break;
       case stopop: // this will stop the garagdoor motor
         doorSwitchOp();
@@ -676,8 +671,7 @@ class homekitGarageDoorAccessory {
                                     this.activateDoorMotor.bind(this,startop),   // release the button to stop door movement and reverse door movement                                
                                     doorSwitch.pressTimeInMs.value,
                                     doorState.timerId);
-        doorState.reverseDoorMovement = true;
-        //doorSwitch.interruptDoorRequest.newOpInProgress = false;//allow new requests to be processed                            
+        doorState.reverseDoorMovement = true;                          
       break;
       default: 
         const errMsg = `invalid operation [${operation}]`;
