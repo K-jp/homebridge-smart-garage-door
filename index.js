@@ -550,6 +550,8 @@ class homekitGarageDoorAccessory {
   }
     
   async getCurrentDoorState(){
+    if (garageDoorHasSensor(doorSensor))
+        doorState.current = this.getGarageDoorSensor(doorSensor);
     logEvent(traceEvent,`[ current door state = ${doorStateText(doorState.current)} ]`);
     return doorState.current;
   }
