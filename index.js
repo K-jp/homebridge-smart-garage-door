@@ -70,7 +70,7 @@ doorSensor.actuator     = signalObj();
 doorSensor2.actuator    = signalObj();
 
 const doorState   = {timerId:null, ignoreGPIOinUse:{value:null,validText:["on","off"],defaultValue:"on",setValue:{on:true,off:false}}, 
-                     validGPIOpins:[5,6,12,13,16,17,22,23,24,25,26,27],
+                     validGPIOpins:[5,6,16,17,22,23,24,25,26,27],
                      sensors:{value:0,minValue:0,maxValue:2,defaultValue:0}, homeKitRequest:false, 
                      moveTimeInMs:null, reverseDoorMovement:false, stopDoorMovement:false,
                      last:null, current:null, target:null, obstruction:false};
