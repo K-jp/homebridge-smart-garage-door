@@ -495,7 +495,7 @@ class homekitGarageDoorAccessory {
             logSensorStartupinfo(doorSensor2,doorsensor2);}
 
         // get cuurent door state info
-        [ doorState.target, doorState.obstruction, doorState.current ] = this.getDoorStateInfo(doorSensor);
+        [ doorState.target, doorState.obstruction, doorState.current ] = this.getDoorStateInfo();
         doorState.obstruction = false; //on startup obstacle detection is inaccurate to report...can only correctly report door is open
         logCurrentDoorState();
      
@@ -557,6 +557,8 @@ class homekitGarageDoorAccessory {
   }
 
   async getTargetDoorState(){
+    if (garageDoorHasSensor(doorSensor))
+        doorState.target = this.getGarageDoorSensor(doorSensor);
     logEvent(traceEvent,`[ current target door state = ${doorStateText(doorState.target)} ]`);
     return doorState.target;
   }
@@ -687,7 +689,7 @@ class homekitGarageDoorAccessory {
     let doorIsOpenOrClosed,doorObstruction,currentDoorState;
     this.cancelAllEvents();
     if (garageDoorHasSensor(doorSensor)){
-        [doorIsOpenOrClosed,doorObstruction,currentDoorState] = this.getDoorStateInfo(doorSensor);
+        [doorIsOpenOrClosed,doorObstruction,currentDoorState] = this.getDoorStateInfo();
     }else{
         doorObstruction  = false;
         doorIsOpenOrClosed = currentDoorState = doorState.target;
@@ -943,7 +945,7 @@ class homekitGarageDoorAccessory {
                         `[ queued listener(s) = ${sensor.interrupt.count} ]`);
   }
 
-  getDoorStateInfo(sensor){
+  getDoorStateInfo(){
     const _currentDoorState = homeBridge.CurrentDoorState;
 
     const garageDoorState =() => {
@@ -967,7 +969,7 @@ class homekitGarageDoorAccessory {
     const [currentDoorState,doorOpenIsOrClosed] = garageDoorState();
 
     const doorObstruction = (currentDoorState == _currentDoorState.STOPPED && !doorState.stopDoorMovement); //a request to stop door movement should not be reported as an obstacle
-    logEvent(traceEvent,`[ GPIO = ${sensor.GPIO} ] [ door sensor = ${doorStateText(doorOpenIsOrClosed)} ] [ door stopped by request = ${doorState.stopDoorMovement}]`+
+    logEvent(traceEvent,`[ door sensor = ${doorStateText(doorOpenIsOrClosed)} ] [ door stopped by request = ${doorState.stopDoorMovement}]`+
                         `[ door obstruction = ${doorObstruction} ] [ door state = ${doorStateText(currentDoorState)} ]`);
     // garage door is open or closed
     return [doorOpenIsOrClosed,doorObstruction,currentDoorState];
@@ -977,7 +979,7 @@ class homekitGarageDoorAccessory {
     // clear any pending homekit timeout and then update the door state
     logEvent(traceEvent,`[ GPIO = ${sensor.GPIO} ] [ source = ${doorRequestSource()} ]`);
     this.cancelAllEvents();
-    const [doorOpenIsOrClosed,doorObstruction,currentDoorState] = this.getDoorStateInfo(sensor);
+    const [doorOpenIsOrClosed,doorObstruction,currentDoorState] = this.getDoorStateInfo();
     this.updateDoorState(doorOpenIsOrClosed,doorObstruction,currentDoorState); 
   }
 
