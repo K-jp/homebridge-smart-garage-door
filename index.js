@@ -1,4 +1,4 @@
- // Copyright [2023] [Ken Piro]
+// Copyright [2023] [Ken Piro]
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,11 +12,56 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-'use strict'
-const gpio = require('onoff').Gpio;
+
+// --- ESM CONVERSION NOTES (read before editing further) --------------
+// This file was converted from CommonJS to ES modules for Homebridge v2
+// (which requires ESM plugins) and to drop the onoff/epoll dependency
+// (replaced with the local gpio-libgpiod-v2.js module - see its own
+// header comments for what's verified vs. not on your real hardware).
+//
+// Every import below was originally a `require()` call somewhere in the
+// file - including two that were INSIDE function bodies (`localFolderName`
+// and the constructor's `inRange` lookup). ESM import statements must be
+// static and top-level, so those were moved up here. This is a real
+// structural change, not just a keyword swap - double check nothing
+// below relies on lazy/conditional loading that these requires may have
+// implicitly provided (a read-through of the original didn't find any
+// such reliance, but worth a second look given how much else changed at
+// the same time).
+//
+// The constructor also originally required `writeFileSync`/`existsSync`
+// from 'fs' for gpioInuse()'s stale-sysfs-export check - that whole
+// function was removed (not just converted) since it's sysfs-only
+// workaround code, confirmed unnecessary under libgpiod's fd-tied line
+// requests. See the removal note further down, at validateGPIOpin().
+//
+// __dirname/__filename don't exist in ESM - they're reconstructed below
+// from import.meta.url, which is the standard replacement.
+//
+// package.json's `version` field can't be `require()`d directly in
+// native ESM without either JSON import attributes (newer, still
+// version-sensitive syntax) or `createRequire` as a deliberate escape
+// hatch back to CJS-style loading for just that one file. createRequire
+// is used here as the safer, more universally-supported choice.
+// -----------------------------------------------------------------------
+
+import { createRequire } from 'node:module';
+import { dirname, basename } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import lodash from 'lodash';
+import debugFactory from 'debug';
+import { Gpio as gpio } from './gpio-libgpiod-v3.js';
+
+const { inRange } = lodash;
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const require = createRequire(import.meta.url);
 const version = require('./package.json').version;
-// this assumes plugin files are in the correct directory which can be obtained from __dirname 
-const localFolderName = () => {const path = require('path'); return path.basename(__dirname);};
+
+// this assumes plugin files are in the correct directory which can be obtained from __dirname
+const localFolderName = () => basename(__dirname);
 const plugInModule = localFolderName();
 const accessoryName = "smartgaragedoor";
 const accessoryInfo  = {developer:`Homebridge Open Source Project`, product:`Homebridge ${accessoryName} - Version ${version}`, randomnum:Math.floor((Math.random() * 10000) + 1)};
@@ -69,7 +114,7 @@ const doorSensor2       = sensorObj();
 doorSensor.actuator     = signalObj();
 doorSensor2.actuator    = signalObj();
 
-const doorState   = {timerId:null, ignoreGPIOinUse:{value:null,validText:["on","off"],defaultValue:"on",setValue:{on:true,off:false}}, 
+const doorState   = {timerId:null,
                      validGPIOpins:[5,6,12,13,16,17,22,23,24,25,26,27],
                      sensors:{value:0,minValue:0,maxValue:2,defaultValue:0}, homeKitRequest:false, 
                      moveTimeInMs:null, reverseDoorMovement:false, stopDoorMovement:false,
@@ -108,10 +153,9 @@ const logEventLevel  = [ "trace  ",
                          "terminating" ];
 const [traceEvent, infoEvent, statsEvent, alertEvent, warnEvent, startupEvent, terminateEvent] = logEventLevel;
 //const log          = require('console');
-const debug           = require('debug');
-const traceLog        = debug(`${accessoryName}:trace`);
-const infoLog         = debug(`${accessoryName}:info`);
-const statsLog        = debug(`${accessoryName}:stats`);
+const traceLog        = debugFactory(`${accessoryName}:trace`);
+const infoLog         = debugFactory(`${accessoryName}:info`);
+const statsLog        = debugFactory(`${accessoryName}:stats`);
 // function to get object key literal
 const objKeySymbol   = ( obj )        => new Proxy(obj, {get(_, key) {return key;}});
 // functions for door switch GPIO OnOff settings
@@ -171,7 +215,7 @@ const logEvent = (event, msg)          => { // logging function for all events
                                                 var caller = getCaller(new Error().stack.split("\n")[2].trim().split(" ")[1])                                               
                                             log(`${event} - ${accessoryName} - ${door} ${(typeof caller !== "undefined" ? ` - ${caller}`:``)} - ${(msg == null ? ``:msg)}`);}
 
-module.exports = (api) => {
+export default (api) => {
   api.registerAccessory(plugInModule,accessoryName,homekitGarageDoorAccessory);
 }                       
 
@@ -196,9 +240,10 @@ class homekitGarageDoorAccessory {
     const doorswitch                 = objNameToText({doorSwitch});
     const doorsensor                 = objNameToText({doorSensor});
     const doorsensor2                = objNameToText({doorSensor2});
-    // external functions used in constructor
-    const {inRange}                  = require('lodash');
-    const {writeFileSync,existsSync} = require('fs');
+    // NOTE: `inRange` was originally `require()`d right here in the
+    // constructor. Moved to the top-of-file imports - ESM import
+    // statements can't live inside a function body. Everything below
+    // refers to the same top-level binding, no other logic changed.
     // functions used to validate config info and construct objects for garage door management
     const switchSensorName = (id)    => {   switch (id) {
                                               case doorswitch:   return "Switch          ";
@@ -257,21 +302,13 @@ class homekitGarageDoorAccessory {
                                               ++index;
                                             --search_len}}
     
-    const getGPIOusePolicy = (configObject,key,saveValue) => { // check for config.ignoreGPIOinUse option..default is to ignore GPIO in use status
-                                            const GPIOpolicylValue  = setValue(varToLowerCase(configObject.ignoreGPIOinUse),saveValue.defaultValue)
-                                            validateConfigKeyWord(GPIOpolicylValue ,key,saveValue.validText);
-                                            return  saveValue.setValue[ GPIOpolicylValue ]} //set user policy                        
-
-    const gpioInuse =(GPIO,unexportGPIO) => { // check availability of GPIO pin                                         
-                                            const GPIOexportPath = '/sys/class/gpio/gpio';
-                                            const GPIOunexportPath = '/sys/class/gpio/unexport';
-                                            const GPIOfile = GPIOexportPath + GPIO + '/';
-                                            if (unexportGPIO && existsSync( GPIOfile )) 
-                                                writeFileSync(GPIOunexportPath, `${GPIO}`); // free GPIO pin that was previously exported by another process        
-                                            return (existsSync( GPIOfile ))}
-
     const validateGPIOpin = (GPIO,objectName) => {
-                                            //const validGPIOpins = [5,6,12,13,16,17,22,23,24,25,26,27];
+                                            // NOTE: this used to also check /sys/class/gpio for a stale export
+                                            // from a previous crashed run (via gpioInuse()/ignoreGPIOinUse) and
+                                            // optionally force-unexport it. Removed: under libgpiod, a line
+                                            // request is tied to an open file descriptor and is released
+                                            // automatically when the owning process exits for any reason, so
+                                            // there's no cross-process stale state left to detect or clean up.
                                             const GPIOmsgHdr = `[ GPIO ${GPIO} ] `;
 
                                             if (!Number.isInteger(GPIO)) {
@@ -280,15 +317,7 @@ class homekitGarageDoorAccessory {
 
                                             if (!doorState.validGPIOpins.includes(GPIO)) {
                                                 const errMsg = `for ${switchSensorName(objectName)}valid GPIO pins are [ ${doorState.validGPIOpins} ]`;
-                                                stopAccessory(fatalError.Invalid_GPIO, GPIOmsgHdr+errMsg)}
-                                                
-                                            let gpio_was_inuse = gpioInuse(GPIO);    
-                                            if (gpio_was_inuse && gpioInuse(GPIO,doorState.ignoreGPIOinUse.value)) {
-                                                const errMsg = `for ${switchSensorName(objectName)}is already inuse`;
-                                                stopAccessory(fatalError.Invalid_GPIO, GPIOmsgHdr+errMsg)}
-                                          
-                                            if (gpio_was_inuse)
-                                                logEvent(warnEvent,`${switchSensorName(objectName)} ${GPIOmsgHdr} was being used by another process and has been exported into this process`)}     
+                                                stopAccessory(fatalError.Invalid_GPIO, GPIOmsgHdr+errMsg)}}     
                                               
     const setGPIO = (GPIO,objectName) => {// validate GPIO config info 
                                             if (GPIO == null){
@@ -392,10 +421,6 @@ class homekitGarageDoorAccessory {
     if (!hasObject(config, objNameToText({config}), doorswitch, config.doorSwitch))
       stopAccessory(fatalError.Missing_Required_Config,`${doorswitch}`);
 
-    
-    // check for presense of GPIO policy config parameter (ignoreGPIOinUse)
-    doorState.ignoreGPIOinUse.value = getGPIOusePolicy(config,objKeySymbol(doorState).ignoreGPIOinUse,doorState.ignoreGPIOinUse);
-    logEvent(startupEvent,`GPIO pins will be exported ${(doorState.ignoreGPIOinUse.value ? ``:`if not being used by another process`)}`);
     
     // get door switch config info   
     const doorSwitchKeySymbol = objKeySymbol(doorSwitch);
