@@ -50,7 +50,7 @@ import { dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import lodash from 'lodash';
 import debugFactory from 'debug';
-import { Gpio as gpio } from './gpio-libgpiod-v3.js';
+import { Gpio as gpio } from './gpio-libgpiod.js';
 
 const { inRange } = lodash;
 
