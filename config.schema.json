@@ -29,13 +29,15 @@
         "title": "sensors",
         "description": "Number of door actuator sensor(s) installed [Default: 0]",
         "type": "integer",
-        "placeholder": 0,
-        "default": 0,
+        "placeholder": 1,
+        "default": 1,
         "oneOf": [
-          { "title": "No sensor installed", "const": [0] },
-          { "title": "(1) sensor installed", "const": [1] },
-          { "title": "(2) sensors installed", "const": [2] }
-        ]
+          { "title": "No sensor installed", "const": 0 },
+          { "title": "(1) sensor installed", "const": 1 },
+          { "title": "(2) sensors installed", "const": 2 }
+        ],
+        "minimum": 0,
+        "maximum": 2
       },
       "doorSwitch": {
         "type": "object",
@@ -65,14 +67,12 @@
           "relaySwitch": {
             "title": "Relay Switch Connection",
             "description": "Door relay switch connection type. [Default: NO - Normally Open]",
-            "$ref": "#/definitions/SensorSignal",
-            "placeholder": "NO"
+            "$ref": "#/definitions/SensorSignal"
           },
           "interruptDoorRequest": {
             "title": "Interrupt Door Request",
             "description": "Allow current open or close door operation to be stopped, reversed or do nothing when a new request is received. [Default: off]",
             "type": "string",
-            "placeholder": "off",
             "oneOf": [
               { "title": "Stop door movement", "const": ["stop"] },
               { "title": "Do NOT stop movement", "const": ["off"] },
@@ -101,7 +101,6 @@
             "title": "primary sensor door orientation",
             "description": "Sensor installed to detect when the door is either open or closed. [Default: closed]",
             "type": "string",
-            "placeholder": "closed",
             "oneOf": [
               { "title": "fully open", "const": ["open"] },
               { "title": "fully closed", "const": ["closed"] }
@@ -122,8 +121,7 @@
           "actuator": {
             "title": "secondary sensor connection",
             "description": "Secondary actuator sensor connection type. [Default: NO - Normally Open]",
-            "$ref": "#/definitions/SensorSignal",
-            "placeholder": "NO"
+            "$ref": "#/definitions/SensorSignal"
           }
         }
       }
