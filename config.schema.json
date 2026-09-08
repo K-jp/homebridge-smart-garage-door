@@ -11,19 +11,19 @@
       "SensorSignal": {
         "type": "string",
         "oneOf": [
-          { "title": "Normally Open", "enum": ["NO"] },
-          { "title": "Normally Closed", "enum": ["NC"] }
+          { "title": "Normally Open", "const": ["NO"] },
+          { "title": "Normally Closed", "const": ["NC"] }
         ]
       }
     },
     "type": "object",
+    "required": ["name", "sensors", "doorSwitch"],
     "properties": {
       "name": {
         "title": "Garage Door Name",
         "description": "Garage door name",
         "type": "string",
-        "default": "Garage Door",
-        "required": true
+        "default": "Garage Door"
       },
       "sensors": {
         "title": "sensors",
@@ -32,44 +32,41 @@
         "placeholder": 0,
         "default": 0,
         "oneOf": [
-          { "title": "No sensor installed", "enum": [0] },
-          { "title": "(1) sensor installed", "enum": [1] },
-          { "title": "(2) sensors installed", "enum": [2] }
+          { "title": "No sensor installed", "const": [0] },
+          { "title": "(1) sensor installed", "const": [1] },
+          { "title": "(2) sensors installed", "const": [2] }
         ]
       },
       "doorSwitch": {
         "type": "object",
+        "required": ["GPIO"],
         "properties": {
           "GPIO": {
             "title": "GPIO",
             "description": "Garage door relay switch GPIO",
-            "$ref": "#/definitions/ValidPin",
-            "required": true
+            "$ref": "#/definitions/ValidPin"
           },
           "pressTimeInMs": {
             "title": "pressTimeInMs",
             "description": "The number of milliseconds to wait before releasing the relay switch. [Default: 1500 milliseconds]",
             "type": "integer",
-            "placeholder": 1500,
+            "default": 1500,
             "minimum": 1000,
-            "maximum": 2000,
-            "required": false
+            "maximum": 2000
           },
           "moveTimeInSec": {
             "title": "moveTimeInSec",
             "description": "The number of seconds to wait before garage door to open or close is expected to be completed. [Default: 12 seconds]",
             "type": "integer",
-            "placeholder": 12,
+            "default": 12,
             "minimum": 10,
-            "maximum": 15,
-            "required": false
+            "maximum": 15
           },
           "relaySwitch": {
             "title": "Relay Switch Connection",
             "description": "Door relay switch connection type. [Default: NO - Normally Open]",
             "$ref": "#/definitions/SensorSignal",
-            "placeholder": "NO",
-            "required": false
+            "placeholder": "NO"
           },
           "interruptDoorRequest": {
             "title": "Interrupt Door Request",
@@ -77,30 +74,27 @@
             "type": "string",
             "placeholder": "off",
             "oneOf": [
-              { "title": "Stop door movement", "enum": ["stop"] },
-              { "title": "Do NOT stop movement", "enum": ["off"] },
-              { "title": "Reverse door movement", "enum": ["on"] }
-            ],
-            "required": false
+              { "title": "Stop door movement", "const": ["stop"] },
+              { "title": "Do NOT stop movement", "const": ["off"] },
+              { "title": "Reverse door movement", "const": ["on"] }
+            ]
           }
         }
       },
       "doorSensor": {
         "condition": { "functionBody": "return model.sensors !== 0;" },
         "type": "object",
+        "required": ["GPIO"],
         "properties": {
           "GPIO": {
             "title": "GPIO",
             "description": "Primary Sensor",
-            "$ref": "#/definitions/ValidPin",
-            "required": true
+            "$ref": "#/definitions/ValidPin"
           },
           "actuator": {
             "title": "primary sensor connection",
             "description": "Primary actuator sensor connection type. [Default: NO - Normally Open]",
-            "$ref": "#/definitions/SensorSignal",
-            "placeholder": "NO",
-            "required": false
+            "$ref": "#/definitions/SensorSignal"
           },
           "position": {
             "condition": { "functionBody": "return model.sensors === 1;" },
@@ -109,33 +103,30 @@
             "type": "string",
             "placeholder": "closed",
             "oneOf": [
-              { "title": "fully open", "enum": ["open"] },
-              { "title": "fully closed", "enum": ["closed"] }
-            ],
-            "required": false
+              { "title": "fully open", "const": ["open"] },
+              { "title": "fully closed", "const": ["closed"] }
+            ]
           }
         }
       },
       "doorSensor2": {
         "condition": { "functionBody": "return model.sensors === 2;" },
         "type": "object",
+        "required": ["GPIO"],
         "properties": {
           "GPIO": {
             "title": "GPIO",
             "description": "Secondary Sensor",
-            "$ref": "#/definitions/ValidPin",
-            "required": true
+            "$ref": "#/definitions/ValidPin"
           },
           "actuator": {
             "title": "secondary sensor connection",
             "description": "Secondary actuator sensor connection type. [Default: NO - Normally Open]",
             "$ref": "#/definitions/SensorSignal",
-            "placeholder": "NO",
-            "required": false
+            "placeholder": "NO"
           }
         }
       }
-    },
-    "required": ["name", "sensors", "doorSwitch"]
+    }
   }
 }
