@@ -8,11 +8,16 @@
         "type": "integer",
         "enum": [5, 6, 12, 13, 16, 17, 22, 23, 24, 25, 26, 27]
       },
+      "SensorTransition": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000
+      },
       "SensorSignal": {
         "type": "string",
         "oneOf": [
-          { "title": "Normally Open", "const": ["NO"] },
-          { "title": "Normally Closed", "const": ["NC"] }
+          { "title": "Normally Open", "const": "NO" },
+          { "title": "Normally Closed", "const": "NC" }
         ]
       }
     },
@@ -29,8 +34,7 @@
         "title": "sensors",
         "description": "Number of door actuator sensor(s) installed [Default: 0]",
         "type": "integer",
-        "placeholder": 1,
-        "default": 1,
+        "default": 0,
         "oneOf": [
           { "title": "No sensor installed", "const": 0 },
           { "title": "(1) sensor installed", "const": 1 },
@@ -48,11 +52,22 @@
             "description": "Garage door relay switch GPIO",
             "$ref": "#/definitions/ValidPin"
           },
+          "interruptDoorRequest": {
+            "title": "Interrupt Door Request",
+            "description": "Allow current open or close door operation to be stopped, reversed or do nothing when a new request is received. [Default: off]",
+            "type": "string",
+	          "default": "off",
+            "oneOf": [
+              { "title": "Stop door movement(stop)", "const": "stop" },
+              { "title": "Do NOT stop movement(off)", "const": "off" },
+              { "title": "Reverse door movement (on)", "const": "on" }
+            ]
+          },
           "pressTimeInMs": {
             "title": "pressTimeInMs",
             "description": "The number of milliseconds to wait before releasing the relay switch. [Default: 1500 milliseconds]",
             "type": "integer",
-            "default": 1500,
+            "placeholder": 1500,
             "minimum": 1000,
             "maximum": 2000
           },
@@ -60,24 +75,15 @@
             "title": "moveTimeInSec",
             "description": "The number of seconds to wait before garage door to open or close is expected to be completed. [Default: 12 seconds]",
             "type": "integer",
-            "default": 12,
+            "placeholder": 12,
             "minimum": 10,
             "maximum": 15
           },
           "relaySwitch": {
             "title": "Relay Switch Connection",
             "description": "Door relay switch connection type. [Default: NO - Normally Open]",
+	          "default": "NO",
             "$ref": "#/definitions/SensorSignal"
-          },
-          "interruptDoorRequest": {
-            "title": "Interrupt Door Request",
-            "description": "Allow current open or close door operation to be stopped, reversed or do nothing when a new request is received. [Default: off]",
-            "type": "string",
-            "oneOf": [
-              { "title": "Stop door movement", "const": ["stop"] },
-              { "title": "Do NOT stop movement", "const": ["off"] },
-              { "title": "Reverse door movement", "const": ["on"] }
-            ]
           }
         }
       },
@@ -94,16 +100,24 @@
           "actuator": {
             "title": "primary sensor connection",
             "description": "Primary actuator sensor connection type. [Default: NO - Normally Open]",
+	          "default": "NO",
             "$ref": "#/definitions/SensorSignal"
           },
+          "debounceTimeoutMs": {
+            "title": "primary sensor transition wait time (ms)",
+            "description": "The number of milliseconds to wait after receiving sensor interrupt. [Default: 0 ms]",
+	          "default": 0,
+            "$ref": "#/definitions/SensorTransition"
+          },  
           "position": {
             "condition": { "functionBody": "return model.sensors === 1;" },
             "title": "primary sensor door orientation",
             "description": "Sensor installed to detect when the door is either open or closed. [Default: closed]",
             "type": "string",
+	          "default": "closed",
             "oneOf": [
-              { "title": "fully open", "const": ["open"] },
-              { "title": "fully closed", "const": ["closed"] }
+              { "title": "fully open", "const": "open" },
+              { "title": "fully closed", "const": "closed" }
             ]
           }
         }
@@ -121,8 +135,15 @@
           "actuator": {
             "title": "secondary sensor connection",
             "description": "Secondary actuator sensor connection type. [Default: NO - Normally Open]",
+	          "default": "NO",
             "$ref": "#/definitions/SensorSignal"
-          }
+          },
+          "debounceTimeoutMs": {
+            "title": "secondary sensor transition wait time (ms)",
+            "description": "The number of milliseconds to wait after receiving sensor interrupt. [Default: 0 ms]",
+	          "default": 0,
+            "$ref": "#/definitions/SensorTransition"
+          } 
         }
       }
     }

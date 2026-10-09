@@ -1,0 +1,12 @@
+{
+    "name": "Garage Door",
+    "sensors": 0,
+    "doorSwitch": {
+        "GPIO": 6,
+        "pressTimeInMs": 1500,
+        "moveTimeInSec": 12,
+        "relaySwitch": "NO",
+        "interruptDoorRequest": "stop"
+        },
+    "accessory": "smartgaragedoor"
+}

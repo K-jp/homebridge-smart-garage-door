@@ -1,0 +1,17 @@
+{
+    "name": "TBdoor1",
+    "sensors": 1,
+    "doorSwitch": {
+        "GPIO": 5,
+        "pressTimeInMs": 1500,
+        "moveTimeInSec": 12,
+        "relaySwitch": "NO",
+        "interruptDoorRequest": "stop"
+        },
+    "doorSensor": {
+        "GPIO": 24,
+        "debounceTimeoutMs": 150,
+        "position": "closed"
+        },
+    "accessory": "smartgaragedoor"
+}

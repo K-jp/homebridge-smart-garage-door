@@ -50,7 +50,7 @@ import { dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import lodash from 'lodash';
 import debugFactory from 'debug';
-import { Gpio as gpio } from './gpio-libgpiod.js';
+import { Gpio as gpio } from './gpio-python.js';
 
 const { inRange } = lodash;
 
@@ -104,7 +104,8 @@ const doorSwitch  = {GPIO:null, onOff:null, pressTimeInMs:{value:null,minValue:1
 const signalObj = () => {return {validText:[ "NO", "NC" ],defaultValue:"NO",signalValue:{NO:1,NC:0}}}
 const sensorObj   =() => {return {GPIO:null, onOff:null, position:null,
                                   interrupt:{ count:0,handler:null },
-                                  actuator:{ value:null,doorStateMatch:null,doorStateNoMatch:null }}}
+                                  actuator:{ value:null,doorStateMatch:null,doorStateNoMatch:null },
+                                  debounceTimeoutMs:{value:null,minValue:0,maxValue:1000,defaultValue:0}}}
 // garage door signal objects 
 doorSwitch.relaySwitch  = signalObj();
 
@@ -184,14 +185,66 @@ const killTimer           = (timerId)  => {// clear pending timer
 const scheduleTimerEvent  = (timerId,timerActionFunction,timer) => {
                                            // schedule an event timer
                                             killTimer(timerId);
-                                            return setTimeout(timerActionFunction, timer);}                                      
+                                            // timerActionFunction may now be async (activateDoorMotor,
+                                            // processDoorTimer, processDoorInterrupt all are, following the
+                                            // async conversion of the switch's writeSync/setDirection/
+                                            // setActiveLow - see their own conversion notes). setTimeout
+                                            // doesn't await its callback, so any rejection would otherwise
+                                            // become an unhandled rejection, which modern Node treats as
+                                            // fatal. Promise.resolve(...) is a safe, single, centralized
+                                            // place to catch that for every timer-based invocation, whether
+                                            // the wrapped function is sync or async.
+                                            return setTimeout(() => {
+                                              Promise.resolve(timerActionFunction()).catch((err) => {
+                                                logEvent(alertEvent, `Unexpected error in scheduled timer action: ${err}`);
+                                              });
+                                            }, timer);}                                      
 //error logging functions
 const getCaller = (stack)              => {// get calling method / function name
                                            const reDot = /[.]/;
                                            return (stack.search(reDot) == -1 ? stack : stack.split(".")[1]);}
 
+// NOTE: this used to parse new Error().stack directly inline at each
+// call site, assuming stack line index [2] is always the immediate
+// caller. That held for purely synchronous code, but async functions
+// (introduced throughout this file for the switch's write path - see
+// conversion notes) insert extra frames (e.g. "processTicksAndRejections",
+// visible directly in earlier error traces) once execution resumes past
+// an await point, so a fixed index can land on the wrong line entirely -
+// and if it throws (e.g. calling .trim() on undefined), it silently
+// aborted whatever logging or error-reporting call it was inside,
+// rather than just losing one log line. A first attempt at fixing this
+// still used a fixed index and was verified (via direct testing, not
+// assumed) to still fail specifically on the post-await case, returning
+// the literal string "async" instead of a real caller name. This
+// version instead SCANS the stack from the top, skipping this
+// function's own frame, the logEvent/stopAccessory wrapper frames, and
+// known async-machinery noise frames, rather than trusting any fixed
+// position - verified directly against sync calls, pre-await async
+// calls, post-await async calls, and the real multi-level async chain
+// this app actually uses (processDoorInterrupt -> updateDoorState ->
+// resetSwitchDirection, each hopping across an await).
+const safeGetCallerFromStack = () => {
+                                        try {
+                                          const stack = new Error().stack.split("\n");
+                                          const skipNames = new Set(['safeGetCallerFromStack', 'logEvent', 'stopAccessory', 'Error']);
+                                          for (let i = 1; i < stack.length; i++) {
+                                            const line = stack[i].trim();
+                                            if (!line.startsWith('at ')) continue;
+                                            if (line.includes('processTicksAndRejections')) continue;
+                                            const token = line.split(' ')[1];
+                                            if (!token || token === 'async') continue;
+                                            const name = getCaller(token);
+                                            if (skipNames.has(name) || skipNames.has(token)) continue;
+                                            return name;
+                                          }
+                                          return "(unknown caller)";
+                                        } catch (ignore) {
+                                          return "(unknown caller)";
+                                        }}
+
 const stopAccessory = (exitCode, msg)  => {// log and terminate execution                                        
-                                              logEvent(terminateEvent,`${getCaller(new Error().stack.split("\n")[2].trim().split(" ")[1])} - ${(msg != null ? exitCode.text + msg : exitCode.text)}`);  
+                                              logEvent(terminateEvent,`${safeGetCallerFromStack()} - ${(msg != null ? exitCode.text + msg : exitCode.text)}`);  
                                               throw process.exit(1);}
 
 const logEvent = (event, msg)          => { // logging function for all events
@@ -212,7 +265,7 @@ const logEvent = (event, msg)          => { // logging function for all events
                                             const door = doorLog.name;
                                             const accessoryName = doorLog.accessory;
                                             if (event == traceEvent) // get name of the method being traced
-                                                var caller = getCaller(new Error().stack.split("\n")[2].trim().split(" ")[1])                                               
+                                                var caller = safeGetCallerFromStack();
                                             log(`${event} - ${accessoryName} - ${door} ${(typeof caller !== "undefined" ? ` - ${caller}`:``)} - ${(msg == null ? ``:msg)}`);}
 
 export default (api) => {
@@ -354,6 +407,19 @@ class homekitGarageDoorAccessory {
                                             doorSensorInfo.actuator.value = setDeviceSignal(configsSensorInfo.actuator, 
                                                                                             objKeySymbol(doorSensorInfo).actuator,
                                                                                             doorSensorInfo.actuator);
+                                            // debounce: off (0ms) by default, matching original onoff-based
+                                            // behavior exactly for anyone who doesn't set this. Found to be
+                                            // needed on hardware where the sensor's magnet is mounted on the
+                                            // door trolley - a brief mechanical wobble as the door starts
+                                            // moving can produce a few real, rapid transitions right at the
+                                            // start of a move, well before the door itself is actually
+                                            // travelling. A modest debounce (tens to a couple hundred ms) is
+                                            // negligible against real door movement (seconds), so this is
+                                            // safe to enable per-installation as needed rather than forced on
+                                            // for everyone.
+                                            doorSensorInfo.debounceTimeoutMs.value = getValue(configsSensorInfo.debounceTimeoutMs,
+                                                                                            objKeySymbol(doorSensorInfo).debounceTimeoutMs,
+                                                                                            doorSensorInfo.debounceTimeoutMs);
                                             // set door sensor position and actuator value door states
                                             [ doorSensorInfo.position,doorSensorInfo.actuator.doorStateMatch, doorSensorInfo.actuator.doorStateNoMatch ] 
                                                                                 = setActutatorDoorStates(doorPosition, objKeySymbol(doorSensorInfo).position);} 
@@ -405,9 +471,9 @@ class homekitGarageDoorAccessory {
     logEvent(traceEvent,`config entries ${Object.entries(config)}`);  
 
     // ensure 1:1 mapping of accessory to bridge
-    if (doorSwitch.GPIO != null){
-        const errMsg = `configure a seperate bridge for [ ${varToUpperCase(config.name)} ]`;
-        stopAccessory(fatalError.Internal_Error,errMsg);}
+//    if (doorSwitch.GPIO != null){
+//        const errMsg = `configure a seperate bridge for [ ${varToUpperCase(config.name)} ]`;
+//        stopAccessory(fatalError.Internal_Error,errMsg);}
 
     // defensive programming check
     if (config.accessory != accessoryName){ 
@@ -434,7 +500,7 @@ class homekitGarageDoorAccessory {
         ++doorState.sensors.value;
         // get primary door sensor config info
         const doorSensorKeySymbol = objKeySymbol(doorSensor);
-        const validDoorSensorParams = [doorSensorKeySymbol.GPIO, doorSensorKeySymbol.actuator, doorSensorKeySymbol.position];
+        const validDoorSensorParams = [doorSensorKeySymbol.GPIO, doorSensorKeySymbol.actuator, doorSensorKeySymbol.position, doorSensorKeySymbol.debounceTimeoutMs];
         validateConfigObject(config.doorSensor, doorsensor, validDoorSensorParams);
         configureDoorSensor(doorsensor, config.doorSensor, doorSensor, config.doorSensor.position); 
         //check for secondary door sensor    
@@ -509,14 +575,16 @@ class homekitGarageDoorAccessory {
                                   logEvent(startupEvent,`${switchSensorName(id)} [ GPIO: ${sensor.GPIO} ] - [ Interrupt on ${sensor.actuator.value ? `Active High` : `Active low`} ]`);
                                   logEvent(startupEvent,`${switchSensorName(id)} can determine door is completely ${sensor.position.toUpperCase()}`);
                                   logEvent(startupEvent,`${switchSensorName(id)} on sensor match door is ${doorStateText(sensor.actuator.doorStateMatch)} `+
-                                                        `- on no match door is ${doorStateText(sensor.actuator.doorStateNoMatch)}`);} 
+                                                        `- on no match door is ${doorStateText(sensor.actuator.doorStateNoMatch)}`);
+                                  if (sensor.debounceTimeoutMs.value > 0)
+                                      logEvent(startupEvent,`${switchSensorName(id)} debounce ${sensor.debounceTimeoutMs.value} ms`);} 
         // activate primary door sensor
-        doorSensor.onOff = activateGPIO(doorSensor.GPIO, 'in', none );
+        doorSensor.onOff = activateGPIO(doorSensor.GPIO, 'in', none, {debounceTimeout: doorSensor.debounceTimeoutMs.value} );
         logSensorStartupinfo(doorSensor,doorsensor);
 
         if (garageDoorHasSensor(doorSensor2)){ 
             // activate secondary door sensor
-            doorSensor2.onOff = activateGPIO(doorSensor2.GPIO, 'in', none );
+            doorSensor2.onOff = activateGPIO(doorSensor2.GPIO, 'in', none, {debounceTimeout: doorSensor2.debounceTimeoutMs.value} );
             logSensorStartupinfo(doorSensor2,doorsensor2);}
 
         // get cuurent door state info
@@ -623,7 +691,16 @@ class homekitGarageDoorAccessory {
     doorState.homeKitRequest = true;    
     doorState.target         = targetDoorState; // set expected door state (open or closed)
     doorState.current        = (targetDoorState == _currentDoorState.OPEN) ? _currentDoorState.OPENING : _currentDoorState.CLOSING;
-    this.activateDoorMotor((interruptDoorMove ? stopop : startop )); 
+    // Deliberately not awaited: this gives HomeKit an immediate
+    // "opening/closing" state update below, matching the original
+    // synchronous code's timing, while the actual relay write completes
+    // a little afterward in the background. The .catch() here is the
+    // safety net so an unexpected failure doesn't become an unhandled
+    // rejection - pushDoorButton's own try/catch already routes the
+    // expected write-failure case through stopAccessory().
+    this.activateDoorMotor((interruptDoorMove ? stopop : startop )).catch((err) => {
+      logEvent(alertEvent, `Unexpected error in activateDoorMotor: ${err}`);
+    });
     this.updateCurrentDoorState(doorState.current);
   }
 
@@ -644,13 +721,24 @@ class homekitGarageDoorAccessory {
         this.obstructionDetected.updateValue(obstruction);}
   }
 
-  activateDoorMotor(operation){
+  // ASYNC CONVERSION NOTE: writeSync()/setDirection()/setActiveLow() on
+  // the switch's Gpio instance are now genuinely asynchronous (see
+  // gpio-libgpiod.js's own conversion notes for why - real hardware
+  // testing found the original synchronous-looking write path had an
+  // actual race condition and no real failure detection). This method
+  // and everything that calls into it were updated to properly await
+  // those calls - see the async keyword on this method and
+  // pushDoorButton below, and every `doorState.timerId = ...`
+  // assignment now awaiting pushDoorButton's result, so it always gets
+  // the real timer ID rather than a pending Promise (which would have
+  // silently broken killTimer()/cancelAllEvents() downstream).
+  async activateDoorMotor(operation){
     logEvent(traceEvent, `${operation.toUpperCase()} [ GPIO = ${doorSwitch.GPIO} ]`); 
                                    
-    const pushDoorButton = (op,nextAction,timeOut,timerId) => {
+    const pushDoorButton = async (op,nextAction,timeOut,timerId) => {
                                 logEvent(traceEvent, `[ GPIO = ${doorSwitch.GPIO} ] [ write value = ${doorSwitch.relaySwitch.writeValue} ] [ timeout = ${timeOut} ]`); 
                                 try {
-                                    doorSwitch.onOff.writeSync(doorSwitch.relaySwitch.writeValue);
+                                    await doorSwitch.onOff.writeSync(doorSwitch.relaySwitch.writeValue);
                                 } catch(error){  
                                     const errMsg = `Attempt to ${op} door switch failed - [ GPIO = ${doorSwitch.GPIO} - write error = ${error} ]`;
                                     stopAccessory(fatalError.Door_Switch_Write_Error,errMsg);
@@ -664,13 +752,13 @@ class homekitGarageDoorAccessory {
     switch (operation){
       case startop:
         doorSwitchOp();
-        doorState.timerId = pushDoorButton(operation,  // press the button 
+        doorState.timerId = await pushDoorButton(operation,  // press the button 
                                   this.activateDoorMotor.bind(this,executeop),
                                   doorSwitch.pressTimeInMs.value,
                                   doorState.timerId);
       break;
       case executeop:
-        doorState.timerId = pushDoorButton(operation,  // release the button and move the door  
+        doorState.timerId = await pushDoorButton(operation,  // release the button and move the door  
                                   this.processDoorTimer.bind(this),
                                   doorState.moveTimeInMs,
                                   doorState.timerId);
@@ -683,12 +771,12 @@ class homekitGarageDoorAccessory {
       case stopop: // this will stop the garagdoor motor
         doorSwitchOp();
         if (doorSwitch.interruptDoorRequest.newRequest){
-            doorState.timerId = pushDoorButton(operation,  //press button to stop door movement and press again to reverse door movement
+            doorState.timerId = await pushDoorButton(operation,  //press button to stop door movement and press again to reverse door movement
                                       this.activateDoorMotor.bind(this,reverseop),                              
                                       doorSwitch.pressTimeInMs.value,
                                       doorState.timerId);}
         else{
-          doorState.timerId = pushDoorButton(operation,
+          doorState.timerId = await pushDoorButton(operation,
                                     this.activateDoorMotor.bind(this,executeop), // push button to begin to stop door movement
                                     doorSwitch.pressTimeInMs.value,
                                     doorState.timerId);
@@ -696,7 +784,7 @@ class homekitGarageDoorAccessory {
       break;
       case reverseop:
         doorSwitchOp();
-        doorState.timerId = pushDoorButton(operation,
+        doorState.timerId = await pushDoorButton(operation,
                                     this.activateDoorMotor.bind(this,startop),   // release the button to stop door movement and reverse door movement                                
                                     doorSwitch.pressTimeInMs.value,
                                     doorState.timerId);
@@ -709,7 +797,7 @@ class homekitGarageDoorAccessory {
     }       
   }
 
-  processDoorTimer(){
+  async processDoorTimer(){
     logEvent(traceEvent, `[ GPIO = ${doorSensor.GPIO} ]`);
     let doorIsOpenOrClosed,doorObstruction,currentDoorState;
     this.cancelAllEvents();
@@ -719,30 +807,39 @@ class homekitGarageDoorAccessory {
         doorObstruction  = false;
         doorIsOpenOrClosed = currentDoorState = doorState.target;
     }
-    this.updateDoorState(doorIsOpenOrClosed,doorObstruction,currentDoorState);
+    await this.updateDoorState(doorIsOpenOrClosed,doorObstruction,currentDoorState);
   }
 
-  updateDoorState(doorIsOpenOrClosed,doorObstruction,currentDoorState){
+  async updateDoorState(doorIsOpenOrClosed,doorObstruction,currentDoorState){
     const requestSource = doorRequestSource();   
     logEvent(traceEvent, `[ source = ${requestSource} ] ${(requestSource == homekit ? `[ request = ${doorStateText(doorState.target)} ]` : ``)} `+
                          `[ sensor state = ${doorStateText(currentDoorState)} ] [ door state = ${doorStateText(doorIsOpenOrClosed)} ]`+
                          `[ door state reverse door movement =  ${doorState.reverseDoorMovement} ] [ door request interrupted = ${doorSwitch.interruptDoorRequest.newOpInProgress} ]`);
     
-    const resetSwitchDirection = () => {
+    const resetSwitchDirection = async () => {
       logEvent(traceEvent, `[ GPIO = ${doorSwitch.GPIO} ] [ direction value = ${switchDirection(doorSwitch.relaySwitch.configValue)} ]`); 
       try {
-        doorSwitch.onOff.setDirection(switchDirection(doorSwitch.relaySwitch.configValue));
+        await doorSwitch.onOff.setDirection(switchDirection(doorSwitch.relaySwitch.configValue));
       } catch(error){  
-        const errMsg = `Attempt to ${op} door switch failed - [ GPIO = ${doorSwitch.GPIO} - setDirection error = ${error} ]`;
+        // NOTE: this used to reference an undefined variable `op` here
+        // (a pre-existing bug - resetSwitchDirection never had `op` in
+        // scope, unlike pushDoorButton where it's a real parameter).
+        // That meant any real failure here crashed with a
+        // ReferenceError instead of ever showing what actually failed.
+        // Fixed to name the operation directly and reference it
+        // correctly.
+        const errMsg = `Attempt to reset switch direction failed - [ GPIO = ${doorSwitch.GPIO} - setDirection error = ${error} ]`;
         stopAccessory(fatalError.Door_Switch_Write_Error,errMsg);
       };}
       
-    const resetSwitchActiveLow = () => {
+    const resetSwitchActiveLow = async () => {
       logEvent(traceEvent, `[ GPIO = ${doorSwitch.GPIO} ] [ active low value = ${switchSignal(doorSwitch.relaySwitch.configValue)} ]`); 
       try {
-        doorSwitch.onOff.setActiveLow(switchSignal(doorSwitch.relaySwitch.configValue));
+        await doorSwitch.onOff.setActiveLow(switchSignal(doorSwitch.relaySwitch.configValue));
       } catch(error){  
-        const errMsg = `Attempt to ${op} door switch failed - [ GPIO = ${doorSwitch.GPIO} - setActiveLow error = ${error} ]`;
+        // Same fix as resetSwitchDirection above - was referencing the
+        // same undefined `op`.
+        const errMsg = `Attempt to reset switch active-low failed - [ GPIO = ${doorSwitch.GPIO} - setActiveLow error = ${error} ]`;
         stopAccessory(fatalError.Door_Switch_Write_Error,errMsg);
       };}
         
@@ -764,8 +861,12 @@ class homekitGarageDoorAccessory {
     doorSwitch.relaySwitch.writeValue = doorSwitch.relaySwitch.configValue;                             
 
     // physical door swich may be in an unkown state if requests were issued from both iphone and traditional garagedoor switch..so always reset it
-    resetSwitchDirection();
-    resetSwitchActiveLow();
+    // NOTE: awaited sequentially, not via Promise.all - both go through
+    // the same doorSwitch.onOff instance's internal _driveOutput()/
+    // holder tracking, and running them concurrently could race against
+    // each other the same way the original kill/spawn bug did.
+    await resetSwitchDirection();
+    await resetSwitchActiveLow();
   }
 
   collectDoorStats(doorstate,doorObstruction){
@@ -1000,15 +1101,15 @@ class homekitGarageDoorAccessory {
     return [doorOpenIsOrClosed,doorObstruction,currentDoorState];
   }
 
-  processDoorInterrupt(sensor){
+  async processDoorInterrupt(sensor){
     // clear any pending homekit timeout and then update the door state
     logEvent(traceEvent,`[ GPIO = ${sensor.GPIO} ] [ source = ${doorRequestSource()} ]`);
     this.cancelAllEvents();
     const [doorOpenIsOrClosed,doorObstruction,currentDoorState] = this.getDoorStateInfo();
-    this.updateDoorState(doorOpenIsOrClosed,doorObstruction,currentDoorState); 
+    await this.updateDoorState(doorOpenIsOrClosed,doorObstruction,currentDoorState); 
   }
 
-  processDoorMoveEvent(sensor){
+  async processDoorMoveEvent(sensor){
     const _currentDoorState   = homeBridge.CurrentDoorState;
     const requestSource       = doorRequestSource();
     
@@ -1050,7 +1151,7 @@ class homekitGarageDoorAccessory {
           break;  
           }
     }       
-    this.processDoorInterrupt(sensor); // door is either OPEN, CLOSED or STOPPED
+    await this.processDoorInterrupt(sensor); // door is either OPEN, CLOSED or STOPPED
   }
 
   resetGarageDoorSensor(sensor){
@@ -1062,15 +1163,24 @@ class homekitGarageDoorAccessory {
         this.setGarageDoorSensor(sensor,cancelInterrupt);
   }
 
+  // NOTE: these two are invoked directly as watch() callbacks by
+  // gpio-libgpiod.js (see sensor.interrupt.handler above). They're kept
+  // as plain (non-async) functions that RETURN the inner promise,
+  // rather than being declared async themselves - gpio-libgpiod.js's
+  // _dispatchToListeners() wraps whatever they return in
+  // Promise.resolve(...).catch(...), which correctly handles either a
+  // plain function or one returning a promise, so returning the promise
+  // here is sufficient for errors to be caught centrally there instead
+  // of becoming an unhandled rejection.
   processPrimarySensorInterrupt(err,doorSensorValue){ 
     logEvent(traceEvent,`[ GPIO = ${doorSensor.GPIO} ] [ actuator = ${doorSensor.actuator.value} ] [ sensor value = ${doorSensorValue} err from OnOff = ${err} ]`);
     this.resetGarageDoorSensor(doorSensor);
-    this.processDoorMoveEvent(doorSensor)
+    return this.processDoorMoveEvent(doorSensor);
   }
 
   processSecondarySensorInterrupt(err,doorSensorValue){ 
     logEvent(traceEvent,`[ GPIO = ${doorSensor2.GPIO} ] [ actuator = ${doorSensor2.actuator.value} ] [ sensor value = ${doorSensorValue} err from OnOff = ${err} ]`);
     this.resetGarageDoorSensor(doorSensor2);
-    this.processDoorMoveEvent(doorSensor2);            
+    return this.processDoorMoveEvent(doorSensor2);
   }
 }

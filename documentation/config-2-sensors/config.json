@@ -1,0 +1,17 @@
+{
+    "name": "Garage Door",
+    "sensors": 2,
+    "doorSwitch": {
+        "GPIO": 5
+        },
+    "doorSensor": {
+        "GPIO": 24,
+        "debounceTimeoutMs": 150
+        },
+    "doorSensor2": {
+        "GPIO": 13,
+        "debounceTimeoutMs": 150,
+        "actuator": "NC"
+        },
+    "accessory": "smartgaragedoor"    
+}

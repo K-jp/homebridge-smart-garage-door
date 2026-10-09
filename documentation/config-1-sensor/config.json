@@ -1,0 +1,11 @@
+{
+    "name": "Garage Door",
+    "sensors": 1,
+    "doorSwitch": {
+        "GPIO": 5
+        },
+    "doorSensor": {
+        "GPIO": 24
+        },
+    "accessory": "smartgaragedoor"
+}
