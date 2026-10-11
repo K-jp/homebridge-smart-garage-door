@@ -29,7 +29,7 @@
         "title": "sensors",
         "description": "Number of door actuator sensor(s) installed [Default: 1]",
         "type": "integer",
-	"placeholder": 1,
+	      "placeholder": 1,
         "default": 1,
         "oneOf": [
           { "title": "No sensor installed", "const": 0 },

@@ -219,16 +219,8 @@ A reasonable workflow: use `config.schema.json`/the UI form to configure the fir
 
 ## Known Issues
 
-### config.schema.json: missing "GPIO" in DoorSensor and DoorSensor2 is not detected when using plugin config.schema.json
+### config.schema.json: missing "GPIO" in DoorSensor and/or DoorSensor2
 
-The `GPIO` field in `config.schema.json` is meant to restrict input to 0, 1, or 2 (via `oneOf`, offering "No sensor installed" / "(1) sensor installed" / "(2) sensors installed" as the only choices). In practice, the schema-driven configuration UI does not reliably prevent a negative number from being entered and saved into `config.json` directly (e.g. via the raw JSON editor, or other means that bypass the dropdown).
+The `GPIO` field in `config.schema.json` only checks fot it to be present in doorSwitch, so it is possible to create a configuration with missing GPIO fields for either doorSensor or doorSensor2. If a GPIO is missing then index.js will report an error and terminate. If this occurs thenenter Homebridge to enter the missing GPIO information by either directly editing the JSON file via the JSON Config window or recreate the configuration via the Plugins window and select Plugin Config.
 
-If this happens, `index.js` itself correctly detects the out-of-range value at startup and refuses to load the accessory, logging a clear, specific error rather than crashing or hanging silently:
-
-```
-Invalid Configuration Option for sensors : [ -1 ] is invalid - valid number range is 0 to 2
-```
-
-If Homebridge reports the garage door accessory failed to start, check the Homebridge log for this message, then correct `sensors` in `config.json` to 0, 1, or 2 and restart.
-
-This is a limitation of the configuration UI's schema validation, not of the plugin's own startup validation, which is intentionally strict and catches this correctly.
+Plese be aware that homebridge will automatically restart the accessory unless you stop homebridge.
