@@ -1,34 +1,52 @@
 {
   "name": "homebridge-smart-garage-door",
+  "displayName": "Smart Garage Door",
   "version": "2.0.0",
-  "description": "Exposes a garage door accessory to HomeBridge that uses a RaspberryPi GPIO pins",
+  "description": "Homebridge garage door opener accessory for Raspberry Pi GPIO (relay + 0/1/2 door sensors), using libgpiod via its Python bindings",
   "main": "index.js",
   "type": "module",
+  "files": [
+    "index.js",
+    "gpio-python.js",
+    "gpio_helper.py",
+    "config.schema.json",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "check": "node --check index.js && node --check gpio-python.js && python3 -m py_compile gpio_helper.py",
+    "prepublishOnly": "npm run check"
   },
   "keywords": [
     "homebridge-plugin",
     "homebridge",
-    "garagedoor"
+    "homekit",
+    "garage",
+    "garagedoor",
+    "garage-door-opener",
+    "raspberry-pi",
+    "gpio",
+    "libgpiod"
   ],
   "author": "Ken Piro",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/K-jp/homebridge-smart-garage-door.git"
+    "url": "git+https://github.com/K-jp/homebridge-smart-garage-door.git"
   },
   "bugs": {
     "url": "https://github.com/K-jp/homebridge-smart-garage-door/issues"
   },
-  "homepage": "https://github.com/K-jp/homebridge-smart-garage-door",
+  "homepage": "https://github.com/K-jp/homebridge-smart-garage-door#readme",
+  "os": [
+    "linux"
+  ],
   "engines": {
     "node": "^22.0.0 || ^24.0.0",
-    "homebridge": ">=2.0.0"
+    "homebridge": "^2.0.0"
   },
   "dependencies": {
-    "lodash": "^4.17.21",
-    "debug": "^4.3.7"
+    "debug": "^4.3.7",
+    "lodash": "^4.17.21"
   }
 }
-

@@ -1,4 +1,4 @@
-# homebridge-smart-garage
+# homebridge-smart-garage-door
  
 Garage door opener for Apple HomeKit using HomeBridge on a raspberry pi.
 
@@ -14,15 +14,31 @@ When the accessory is configured with one or two actuators, it will use interrup
 
 When the accessory is NOT configured with one or two actuators, it will only be able to toggle a relay switch to control door movement. It will NOT be able to determine the actual garage door state (i.e. open or closed). Furthermore, the accessory will assume the door is closed when the accessory is initially added to Apple HomeKit and the accessory will not be able to report when the garage door has been open or closed by a traditional wireless door controller or wired door switch.
 
+## documentation
+
+An overview of how the garage door accessory works is in the [Simple Garage Story Board](https://github.com/K-jp/homebridge-smart-garage-door/blob/main/documentation/Simple%20Garage%20Story%20Board.pptx) (PowerPoint, in the repository's `documentation` folder).
+
 ## prerequisites
 
-- Node.js `^22.0.0` or `^24.0.0`, and Homebridge `>=2.0.0`.
+- Node.js `^22.0.0` or `^24.0.0`, and Homebridge `^2.0.0`.
 - A Raspberry Pi running an OS with **libgpiod v2.x** and its character-device GPIO interface (confirmed on Raspberry Pi OS Trixie) - not the older sysfs GPIO interface, which recent Raspberry Pi OS releases have removed.
 - **Python 3 with the `python3-libgpiod` system package installed** (`sudo apt install python3-libgpiod`). This is an **operating-system** dependency, not an npm one - it will not be installed automatically when you install this plugin, and needs to be present separately. This accessory uses Python's own libgpiod bindings, in a small helper process, to talk to the GPIO hardware directly - not npm packages, and not command-line GPIO tools.
 - Standard Raspberry Pi GPIO numbering on `gpiochip0` (confirmed on Raspberry Pi 3B/3A+ hardware). The package python3-libgpiod was automatically installed when using Raspberry Pi Imager v2.0.12.
 
+## installation
+
+1. Install the Python GPIO bindings (once per Pi):
+   ```bash
+   sudo apt install python3-libgpiod
+   ```
+2. Install the plugin, either by searching for `homebridge-smart-garage-door` on the **Plugins** tab of the Homebridge UI, or from the command line:
+   ```bash
+   sudo hb-service add homebridge-smart-garage-door
+   ```
+3. Add an accessory entry to the `accessories` array in `config.json` (see below), then restart Homebridge.
+
 ## configuration
-Config.schema.json is the recommended method for configuing this accessory.
+The recommended way to configure this accessory is the plugin's settings form in the Homebridge UI (Plugins tab → **Settings**), which is driven by `config.schema.json`. You can also edit `config.json` directly using the examples below.
 Here is an example of a garage door confguration with only a switch.
  ```json
 {
