@@ -19,7 +19,7 @@ When the accessory is NOT configured with one or two actuators, it will only be 
 - Node.js `^22.0.0` or `^24.0.0`, and Homebridge `>=2.0.0`.
 - A Raspberry Pi running an OS with **libgpiod v2.x** and its character-device GPIO interface (confirmed on Raspberry Pi OS Trixie) - not the older sysfs GPIO interface, which recent Raspberry Pi OS releases have removed.
 - **Python 3 with the `python3-libgpiod` system package installed** (`sudo apt install python3-libgpiod`). This is an **operating-system** dependency, not an npm one - it will not be installed automatically when you install this plugin, and needs to be present separately. This accessory uses Python's own libgpiod bindings, in a small helper process, to talk to the GPIO hardware directly - not npm packages, and not command-line GPIO tools.
-- Standard Raspberry Pi GPIO numbering on `gpiochip0` (confirmed on Raspberry Pi 3B/3A+ hardware).
+- Standard Raspberry Pi GPIO numbering on `gpiochip0` (confirmed on Raspberry Pi 3B/3A+ hardware). The package python3-libgpiod was automatically installed when using Raspberry Pi Imager v2.0.12.
 
 ## configuration
 Config.schema.json is the recommended method for configuing this accessory.
