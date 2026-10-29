@@ -4,15 +4,13 @@ Garage door opener for Apple HomeKit using HomeBridge on a raspberry pi.
 
 This accessory controls and monitors the opening and closing of a garage door.
 
-It uses GPIO pins for toggling a relay switch control door movement and for monitoring the current state of the door (i.e. open, opening, closed, closing).
+It uses GPIO pins for toggling a relay switch to control door movement and for monitoring the current state of the door (i.e. open, opening, closed, closing).
 
-This accessory requires a relay switch connects to the garage door motor in order to move the door and actuators that allow the accessory to determine if the door is copen or closed.
+This accessory requires a relay switch that connects to the garage door motor in order to move the door and can optionally be configured with actuators that allow the accessory to determine if the door is open or closed.
 
-This accessory can be optionally configured with actuators to monitor the current state of the door. 
+When the accessory is configured with one or two actuators, it will use interrupts to determine when the garage door state (i.e. open or closed) changes, thus allowing the accessory to always know the current door state and report it, even when either a traditional wireless door controller or wired door switch are used to open or close the garage door.
 
-When the accessory is configured with one or two actuators, it will use interrupts to determine when the garage door state (i.e. open or closed) changes, thus allowing the accessory to always know the current door state and report it, even when a traditional wireless door controller or wired door switch are used to open or close the garage door.
-
-When the accessory is NOT configured with one or two actuators, it will only be able to toggle a relay switch to control door movement. It will NOT be able to determine the actual garage door state (i.e. open or closed). Furthermore, the accessory will assume the door is closed when the accessory is initially added to Apple HomeKit and the accessory will not be able to report when the garage door has been open or closed by a traditional wireless door controller or wired door switch.
+When the accessory is NOT configured with one or two actuators, it will only be able to toggle a relay switch to open or close the door. It will NOT be able to determine the actual garage door state (i.e. open or closed). Furthermore, the accessory will assume the door is closed when the accessory is initially added to Apple HomeKit and the accessory will not be able to report when the garage door has been open or closed by either a traditional wireless door controller or wired door switch.
 
 ## documentation
 
@@ -39,7 +37,7 @@ An overview of how the garage door accessory works is in the [Simple Garage Stor
 
 ## configuration
 The recommended way to configure this accessory is the plugin's settings form in the Homebridge UI (Plugins tab → **Settings**), which is driven by `config.schema.json`. You can also edit `config.json` directly using the examples below.
-Here is an example of a garage door confguration with only a switch.
+Here is an example of a garage door confguration with only a switch and no actuator.
  ```json
 {
     "name": "Garage Door",
@@ -51,7 +49,7 @@ Here is an example of a garage door confguration with only a switch.
     "accessory": "smartgaragedoor"
 }
 ```
-Here is an example of a garage door confguration with a switch and 1 actuator. An actuator is defined as the json objects, doorSensor for the 1st actuator and doorSensor2 if a 2nd actuator is configured.
+Here is an example of a garage door confguration with a switch and 1 actuator. An actuator is defined as the json object, doorSensor for the actuator.
 ```json
 {
     "name": "Garage Door",
@@ -67,7 +65,7 @@ Here is an example of a garage door confguration with a switch and 1 actuator. A
     "accessory": "smartgaragedoor"
 }
 ```
-Here is an example of a garage door confguration with 2 actuators.
+Here is an example of a garage door confguration with 2 actuators. The 1st actuator is doorSensor and 2nd actuator doorSensor2.
 ```json
 {
     "name": "Garage Door",
@@ -143,12 +141,6 @@ Here is an example of a garage door confguration with 2 actuators.
 
     “position”: <”key value”>, (optional) - key values in quotes are open or closed.
 
-        off - upon receiving a new door move request while currently executing a door move request, the new request will be ignored.
-
-        on - upon receiving a new door move request while currently executing a door move request, the current request door movement will reverse.
-
-        stop – upon receiving a new door move request while currently executing a door move request, the door movement will stop.
-
         Default is closed
 
         NOTE: Setting this configuration parameter when 2 actuators are configued will result in a warning since doorSensor actuator must be assocated when the door is closed and doorSensor2 acture must be assocated when the door is open
@@ -163,9 +155,11 @@ Here is an example of a garage door confguration with 2 actuators.
 
 ## Multiple Garage Doors (Child Bridges)
 
-`config.schema.json` (the Homebridge UI's configuration form) only supports configuring a single `smartgaragedoor` accessory at a time. To run two or more garage doors, each as its own child bridge, the additional accessory entries must be added to `config.json` by hand - the UI form cannot generate this for you.
+A single raspberry pi can control 2 seperate garge door accessories and each garage door can have either have no actutator or 1 actuator.
 
-Each additional door needs its own entry in the `accessories` array, with its own `_bridge` block containing a unique `username` (a MAC-address-style identifier, not shared with the main bridge or any other accessory/child bridge) and a unique `port`, which will be automatically generated by homebridge when invoking "Set Up Child Bridge" in the Plugins window. Tested, working example for two doors:
+`config.schema.json` (the Homebridge UI's configuration form) only supports configuring a single `smartgaragedoor` accessory at a time. To run two garage door accessories, each needs its own child bridge, the additional accessory entries must be added to `config.json` by hand - the UI form cannot generate this for you.
+
+Each door needs its own entry in the `accessories` array, with its own `_bridge` block containing a unique `username` (a MAC-address-style identifier, not shared with the main bridge or any other accessory/child bridge) and a unique `port`, which will be automatically generated by homebridge when invoking "Set Up Child Bridge" in the Plugins window. Tested, working example for two doors:
 
 ```json
 {
@@ -221,6 +215,6 @@ A reasonable workflow: use `config.schema.json`/the UI form to configure the fir
 
 ### config.schema.json: missing "GPIO" in DoorSensor and/or DoorSensor2
 
-The `GPIO` field in `config.schema.json` only checks fot it to be present in doorSwitch, so it is possible to create a configuration with missing GPIO fields for either doorSensor or doorSensor2. If a GPIO is missing then index.js will report an error and terminate. If this occurs thenenter Homebridge to enter the missing GPIO information by either directly editing the JSON file via the JSON Config window or recreate the configuration via the Plugins window and select Plugin Config.
+The `GPIO` field in `config.schema.json` only checks fot it to be present in doorSwitch, so it is possible to create a configuration with missing GPIO fields for either doorSensor or doorSensor2. If a GPIO is missing then index.js will report an error and terminate. If this occurs then use the JSON editor in Homebridge to enter the missing GPIO information by either directly info the JSON file via the JSON Config window.
 
-Plese be aware that homebridge will automatically restart the accessory unless you stop homebridge.
+Plese be aware that on any error detected that issies a terminate request will result in homebridge  automatically restart the accessory until the error is corrected (i.e. such as missing GPIO info in JSON file) or stop homebridge via 'sudo hb-service stop'.
